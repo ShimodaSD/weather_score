@@ -1,0 +1,23 @@
+[project]
+name = "weather_score"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dotenv>=0.9.9",
+    "fastapi>=0.141.1",
+    "psycopg[binary,pool]>=3.3.4",
+    "python-multipart>=0.0.32",
+    "requests>=2.34.2",
+    "uvicorn>=0.52.2",
+    "weatherapipython",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.3",
+]
+
+[tool.uv.sources]
+weatherapipython = { git = "https://github.com/weatherapicom/python.git" }
