@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 import requests
@@ -5,7 +6,7 @@ import uvicorn
 from fastapi import APIRouter, Depends, FastAPI
 
 try:
-    from ...src.grade_weather.main import generate_grade
+    from ...src.weather_score.application.main import generate_grade
     from ...src.weather_score.weather.providers.weather_api import (
         get_weatherapi_lat_long,
     )
@@ -14,8 +15,9 @@ try:
 except ImportError:
     from database import pool
     from security import require_access_token, security_router
-    from src.grade_weather.main import generate_grade
 
+    from src.weather_score.application.main import generate_grade
+    from src.weather_score.weather.providers.openmeteo import get_openmeteo_altitude
     from src.weather_score.weather.providers.weather_api import get_weatherapi_lat_long
 
 
@@ -90,9 +92,12 @@ async def get_weather(address: str):
         return {
             "error": "Could not retrieve latitude and longitude for the given address."
         }
-    weather = await get_weatherapi_lat_long(lat.strip(), lon.strip())
-    generate_grade(weather)
-    return weather
+    weather, altitude = await asyncio.gather(
+        get_weatherapi_lat_long(lat.strip(), lon.strip()),
+        get_openmeteo_altitude(lat.strip(), lon.strip()),
+    )
+
+    return await generate_grade(weather, altitude)
 
 
 app.include_router(security_router, tags=["Auth"])
