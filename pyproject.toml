@@ -16,8 +16,15 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.12.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.16.3",
 ]
 
 [tool.uv.sources]
 weatherapipython = { git = "https://github.com/weatherapicom/python.git" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "src"]
