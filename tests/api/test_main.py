@@ -124,6 +124,42 @@ def test_score_run_provider_failure_returns_bad_gateway(monkeypatch):
     assert response.json() == {"detail": "Could not retrieve weather data."}
 
 
+def test_score_run_by_type_uses_training_type(monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "get_lat_long",
+        AsyncMock(return_value={"latitude": "-27.47", "longitude": "153.03"}),
+    )
+    weather = {"current": {"temp_c": 7}}
+    altitude = {"elevation": [10]}
+    monkeypatch.setattr(
+        main, "get_weatherapi_lat_long", AsyncMock(return_value=weather)
+    )
+    monkeypatch.setattr(
+        main, "get_openmeteo_altitude", AsyncMock(return_value=altitude)
+    )
+    generate_grade_by_type = AsyncMock(return_value=99)
+    monkeypatch.setattr(main, "generate_grade_by_type", generate_grade_by_type)
+
+    response = client.get(
+        "/score/run/by-type",
+        params={"address": "Brisbane", "training_type": "easy"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == 99
+    generate_grade_by_type.assert_awaited_once_with(weather, altitude, "easy")
+
+
+def test_score_run_by_type_rejects_unknown_type():
+    response = client.get(
+        "/score/run/by-type",
+        params={"address": "Brisbane", "training_type": "recovery"},
+    )
+
+    assert response.status_code == 422
+
+
 def test_login_returns_access_token(monkeypatch):
     monkeypatch.setattr(auth, "AUTH_USERNAME", "runner")
     monkeypatch.setattr(auth, "AUTH_PASSWORD", "secret")
