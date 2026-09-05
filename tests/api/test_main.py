@@ -160,6 +160,57 @@ def test_score_run_by_type_rejects_unknown_type():
     assert response.status_code == 422
 
 
+def test_grade_run_requires_bearer_token():
+    response = client.post(
+        "/grade/run",
+        json={
+            "average_pace_seconds_per_km": 300,
+            "headwind_kph": 12,
+            "wet_bulb_globe_temperature_c": 15,
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_grade_run_returns_factor_breakdown(monkeypatch):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+
+    response = client.post(
+        "/grade/run",
+        headers={"Authorization": "Bearer token"},
+        json={
+            "average_pace_seconds_per_km": 300,
+            "headwind_kph": 12,
+            "wet_bulb_globe_temperature_c": 15,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "score": 96.44,
+        "running_speed_kph": 12.0,
+        "relative_air_speed_kph": 24.0,
+        "wind_metabolic_change_percent": 2.06,
+        "thermal_performance_loss_percent": 1.5,
+    }
+
+
+def test_grade_run_rejects_missing_pace(monkeypatch):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+
+    response = client.post(
+        "/grade/run",
+        headers={"Authorization": "Bearer token"},
+        json={
+            "headwind_kph": 0,
+            "wet_bulb_globe_temperature_c": 7.5,
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_login_returns_access_token(monkeypatch):
     monkeypatch.setattr(auth, "AUTH_USERNAME", "runner")
     monkeypatch.setattr(auth, "AUTH_PASSWORD", "secret")

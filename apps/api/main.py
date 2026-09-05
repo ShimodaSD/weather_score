@@ -12,9 +12,11 @@ from weather_score.weather.providers.weather_api import get_weatherapi_lat_long
 
 try:
     from .database import pool
+    from .routes.run_grade import router as run_grade_router
     from .security import require_access_token, security_router
 except ImportError:
     from database import pool
+    from routes.run_grade import router as run_grade_router
     from security import require_access_token, security_router
 
 
@@ -34,6 +36,7 @@ openapi_tags = [
     {"name": "System", "description": "Health and service status endpoints."},
     {"name": "Auth", "description": "Authentication and token issuance."},
     {"name": "Location", "description": "Endpoints for location-based services."},
+    {"name": "Grade", "description": "Research-backed activity grading."},
 ]
 
 app = FastAPI(
@@ -132,6 +135,10 @@ async def score_run_by_type(
 
 
 app.include_router(security_router, tags=["Auth"])
+app.include_router(
+    run_grade_router,
+    dependencies=[Depends(require_access_token)],
+)
 app.include_router(protected_api)
 
 

@@ -142,6 +142,13 @@ Run frontend-specific commands from `apps/web` once its React project is
 created. Update this guide when the web app, shared schemas, tests, or build
 commands are added.
 
+## Python documentation convention
+
+- Do not add inline or block `#` comments to Python files.
+- Runtime docstrings may document public modules, types, and functions.
+- Put implementation rationale, equations, research citations, limitations,
+  and change notes in Markdown files under `docs/`.
+
 ## Definition of done
 
 A change is complete when it is placed in the correct app layer, preserves
