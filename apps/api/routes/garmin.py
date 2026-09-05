@@ -9,7 +9,9 @@ async def get_distance() -> list[TupleRow]:
     Keep ``query`` in application code and pass values through ``params``;
     never interpolate user input into the SQL string.
     """
-    async with garmin_pool.connection() as connection:
-        async with connection.cursor() as cursor:
-            await cursor.execute("SELECT ")
-            return await cursor.fetchall()
+    async with (
+        garmin_pool.connection() as connection,
+        connection.cursor() as cursor,
+    ):
+        await cursor.execute("SELECT ")
+        return await cursor.fetchall()
