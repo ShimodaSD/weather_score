@@ -13,6 +13,9 @@ os.environ.setdefault("DB_NAME", "test")
 
 main = importlib.import_module("apps.api.main")
 auth = importlib.import_module("apps.api.security.auth")
+geocoding = importlib.import_module("apps.api.services.geocoding")
+scoring = importlib.import_module("apps.api.services.scoring")
+location_schemas = importlib.import_module("apps.api.schemas.location")
 
 
 client = TestClient(main.app, raise_server_exceptions=False)
@@ -40,7 +43,7 @@ def test_address_is_required(path):
 
 def test_geocodes_address(monkeypatch):
     get = Mock(return_value=response_with([{"lat": "-27.47", "lon": "153.03"}]))
-    monkeypatch.setattr(main.requests, "get", get)
+    monkeypatch.setattr(geocoding.requests, "get", get)
 
     response = client.get("/address-to-lat-long", params={"address": "Brisbane"})
 
@@ -50,7 +53,11 @@ def test_geocodes_address(monkeypatch):
 
 
 def test_unknown_address_returns_error(monkeypatch):
-    monkeypatch.setattr(main.requests, "get", Mock(return_value=response_with([])))
+    monkeypatch.setattr(
+        geocoding.requests,
+        "get",
+        Mock(return_value=response_with([])),
+    )
 
     response = client.get("/address-to-lat-long", params={"address": "Unknown"})
 
@@ -60,7 +67,9 @@ def test_unknown_address_returns_error(monkeypatch):
 
 def test_geocoding_failure_returns_bad_gateway(monkeypatch):
     monkeypatch.setattr(
-        main.requests, "get", Mock(side_effect=requests.Timeout("timed out"))
+        geocoding.requests,
+        "get",
+        Mock(side_effect=requests.Timeout("timed out")),
     )
 
     response = client.get("/address-to-lat-long", params={"address": "Brisbane"})
@@ -71,18 +80,23 @@ def test_geocoding_failure_returns_bad_gateway(monkeypatch):
 
 def test_score_run_calls_services(monkeypatch):
     monkeypatch.setattr(
-        main,
-        "get_lat_long",
-        AsyncMock(return_value={"latitude": " -27.47 ", "longitude": " 153.03 "}),
+        scoring,
+        "geocode_address",
+        AsyncMock(
+            return_value=location_schemas.CoordinatesResponse(
+                latitude=" -27.47 ",
+                longitude=" 153.03 ",
+            )
+        ),
     )
     weather = {"current": {"temp_c": 7}}
     altitude = {"elevation": [10]}
     get_weather = AsyncMock(return_value=weather)
     get_altitude = AsyncMock(return_value=altitude)
     generate_grade = AsyncMock(return_value=98.5)
-    monkeypatch.setattr(main, "get_weatherapi_lat_long", get_weather)
-    monkeypatch.setattr(main, "get_openmeteo_altitude", get_altitude)
-    monkeypatch.setattr(main, "generate_grade", generate_grade)
+    monkeypatch.setattr(scoring, "get_weatherapi_lat_long", get_weather)
+    monkeypatch.setattr(scoring, "get_openmeteo_altitude", get_altitude)
+    monkeypatch.setattr(scoring, "generate_grade", generate_grade)
 
     response = client.get("/score/run", params={"address": "Brisbane"})
 
@@ -94,9 +108,9 @@ def test_score_run_calls_services(monkeypatch):
 
 
 def test_score_run_stops_when_address_is_not_found(monkeypatch):
-    monkeypatch.setattr(main, "get_lat_long", AsyncMock(return_value={"error": "not found"}))
+    monkeypatch.setattr(scoring, "geocode_address", AsyncMock(return_value=None))
     get_weather = AsyncMock()
-    monkeypatch.setattr(main, "get_weatherapi_lat_long", get_weather)
+    monkeypatch.setattr(scoring, "get_weatherapi_lat_long", get_weather)
 
     response = client.get("/score/run", params={"address": "Unknown"})
 
@@ -109,14 +123,21 @@ def test_score_run_stops_when_address_is_not_found(monkeypatch):
 
 def test_score_run_provider_failure_returns_bad_gateway(monkeypatch):
     monkeypatch.setattr(
-        main,
-        "get_lat_long",
-        AsyncMock(return_value={"latitude": "-27.47", "longitude": "153.03"}),
+        scoring,
+        "geocode_address",
+        AsyncMock(
+            return_value=location_schemas.CoordinatesResponse(
+                latitude="-27.47",
+                longitude="153.03",
+            )
+        ),
     )
     monkeypatch.setattr(
-        main, "get_weatherapi_lat_long", AsyncMock(side_effect=TimeoutError("timeout"))
+        scoring,
+        "get_weatherapi_lat_long",
+        AsyncMock(side_effect=TimeoutError("timeout")),
     )
-    monkeypatch.setattr(main, "get_openmeteo_altitude", AsyncMock(return_value={}))
+    monkeypatch.setattr(scoring, "get_openmeteo_altitude", AsyncMock(return_value={}))
 
     response = client.get("/score/run", params={"address": "Brisbane"})
 
@@ -126,20 +147,25 @@ def test_score_run_provider_failure_returns_bad_gateway(monkeypatch):
 
 def test_score_run_by_type_uses_training_type(monkeypatch):
     monkeypatch.setattr(
-        main,
-        "get_lat_long",
-        AsyncMock(return_value={"latitude": "-27.47", "longitude": "153.03"}),
+        scoring,
+        "geocode_address",
+        AsyncMock(
+            return_value=location_schemas.CoordinatesResponse(
+                latitude="-27.47",
+                longitude="153.03",
+            )
+        ),
     )
     weather = {"current": {"temp_c": 7}}
     altitude = {"elevation": [10]}
     monkeypatch.setattr(
-        main, "get_weatherapi_lat_long", AsyncMock(return_value=weather)
+        scoring, "get_weatherapi_lat_long", AsyncMock(return_value=weather)
     )
     monkeypatch.setattr(
-        main, "get_openmeteo_altitude", AsyncMock(return_value=altitude)
+        scoring, "get_openmeteo_altitude", AsyncMock(return_value=altitude)
     )
     generate_grade_by_type = AsyncMock(return_value=99)
-    monkeypatch.setattr(main, "generate_grade_by_type", generate_grade_by_type)
+    monkeypatch.setattr(scoring, "generate_grade_by_type", generate_grade_by_type)
 
     response = client.get(
         "/score/run/by-type",

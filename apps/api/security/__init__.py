@@ -1,3 +1,3 @@
-from .auth import require_access_token, security_router
+from .auth import require_access_token, router
 
-__all__ = ["require_access_token", "security_router"]
+__all__ = ["require_access_token", "router"]
