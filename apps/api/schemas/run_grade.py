@@ -1,29 +1,43 @@
 """Pace-aware run grading API schemas."""
 
-from pydantic import BaseModel, Field
+import re
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+_PACE_PATTERN = re.compile(r"^(\d+):([0-5]\d)$")
 
 
 class RunGradeRequest(BaseModel):
-    """Normalized conditions used by the run scoring engine."""
+    """Runner input used with current conditions resolved by address."""
 
-    average_pace_seconds_per_km: float = Field(
+    model_config = ConfigDict(extra="forbid")
+
+    average_pace_minutes_per_km: float = Field(
         gt=0,
-        description="Average moving pace in seconds per kilometre.",
-        examples=[300],
-    )
-    headwind_kph: float = Field(
         description=(
-            "Wind component along the route: positive for a headwind and "
-            "negative for a tailwind."
+            "Average moving pace in minutes per kilometre, either as decimal "
+            "minutes or a minutes:seconds string."
         ),
-        examples=[12],
+        examples=["5:20"],
     )
-    wet_bulb_globe_temperature_c: float = Field(
-        ge=-50,
-        le=60,
-        description="Wet-bulb globe temperature in degrees Celsius.",
-        examples=[15],
+
+    @field_validator(
+        "average_pace_minutes_per_km",
+        mode="before",
+        json_schema_input_type=float | str,
     )
+    @classmethod
+    def parse_pace(cls, value: object) -> object:
+        """Convert minutes:seconds pace notation to decimal minutes."""
+        if not isinstance(value, str):
+            return value
+
+        match = _PACE_PATTERN.fullmatch(value.strip())
+        if match is None:
+            raise ValueError("pace must use minutes:seconds format, such as 5:20")
+
+        minutes, seconds = (int(part) for part in match.groups())
+        return minutes + seconds / 60
 
 
 class RunGradeResponse(BaseModel):

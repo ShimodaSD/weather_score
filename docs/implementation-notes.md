@@ -12,7 +12,7 @@ The change adds a bearer-protected `POST /grade/run` endpoint, normalized
 request and response models, an independent scoring module, and automated
 tests.
 
-Average pace is converted from seconds per kilometre to running speed. The
+Average pace is converted from minutes per kilometre to running speed. The
 signed route-relative wind component is combined with running speed to
 calculate relative air speed. Negative wind values represent tailwinds, and
 relative air speed cannot fall below zero. Tailwind benefit is reported
