@@ -14,6 +14,13 @@ dependencies = [
     "weatherapipython",
 ]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/weather_score"]
+
 [dependency-groups]
 dev = [
     "httpx2>=2.12.0",

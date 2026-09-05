@@ -29,15 +29,15 @@ class RunGrade:
 
 def calculate_run_grade(
     *,
-    average_pace_seconds_per_km: float,
+    average_pace_minutes_per_km: float,
     headwind_kph: float,
     wet_bulb_globe_temperature_c: float,
 ) -> RunGrade:
     """Calculate a bounded outdoor-run suitability grade."""
 
-    if not isfinite(average_pace_seconds_per_km):
+    if not isfinite(average_pace_minutes_per_km):
         raise ValueError("average pace must be finite")
-    if average_pace_seconds_per_km <= 0:
+    if average_pace_minutes_per_km <= 0:
         raise ValueError("average pace must be greater than zero")
     if not isfinite(headwind_kph):
         raise ValueError("headwind must be finite")
@@ -46,7 +46,7 @@ def calculate_run_grade(
     if wet_bulb_globe_temperature_c < -50 or wet_bulb_globe_temperature_c > 60:
         raise ValueError("WBGT must be between -50 and 60 degrees Celsius")
 
-    running_speed_mps = 1000 / average_pace_seconds_per_km
+    running_speed_mps = 1000 / (average_pace_minutes_per_km * 60)
     relative_air_speed_mps = max(0.0, running_speed_mps + headwind_kph / 3.6)
 
     if headwind_kph >= 0:

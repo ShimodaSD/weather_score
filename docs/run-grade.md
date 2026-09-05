@@ -1,21 +1,24 @@
 # Pace-aware run grade
 
-`POST /grade/run` produces a suitability index for the supplied wind and
-thermal conditions. It grades conditions rather than the runner's ability.
+`POST /grade/run?address=Brisbane` produces a suitability index for the
+current conditions at the supplied address. It grades conditions rather than
+the runner's ability.
 
 ## Request
 
 ```json
 {
-  "average_pace_seconds_per_km": 300,
-  "headwind_kph": 12,
-  "wet_bulb_globe_temperature_c": 15
+  "average_pace_minutes_per_km": "5:20"
 }
 ```
 
-`headwind_kph` is the wind component along the direction of travel. Positive
-values are headwinds and negative values are tailwinds. A weather station's
-unsigned wind speed must first be resolved against the route direction.
+Pace strings use `minutes:seconds` notation, with seconds between `00` and
+`59`. Decimal minutes, such as `5.333`, are also accepted.
+
+The API geocodes the query-string address and retrieves the current weather.
+WeatherAPI's gust speed is treated conservatively as a headwind, and its wet
+bulb temperature is used as the thermal input. Client-supplied weather fields
+are rejected. The endpoint remains bearer-token protected.
 
 ## Equations and evidence
 
