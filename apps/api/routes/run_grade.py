@@ -1,7 +1,6 @@
 """HTTP contract for pace-aware run grading."""
 
 from fastapi import APIRouter
-
 from weather_score.application.run_grade import calculate_run_grade
 
 try:

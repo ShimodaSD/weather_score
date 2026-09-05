@@ -34,9 +34,11 @@ tests/                           # Automated tests (currently empty)
 workspace/                       # Working project artifacts (currently empty)
 ```
 
-The root `pyproject.toml`, `README.md`, and the application README files are
-currently empty. Do not assume root-level Python tooling applies to the API;
-use `apps/api/pyproject.toml` and its lockfile for backend dependencies.
+The repository-root `pyproject.toml` and `uv.lock` configure backend
+dependencies and package `src/weather_score` for editable installation.
+Run uv from `apps/api`; it discovers the root project automatically.
+Shared application and provider code lives in `src/weather_score` and tests
+live in `tests`. API startup instructions are in `apps/api/README.md`.
 
 ## Backend: FastAPI
 
@@ -134,8 +136,8 @@ When working on the API, run commands from `apps/api` and use the project’s
 ```bash
 uv sync
 uv run uvicorn main:app --reload
-uv run pytest
-uv run ruff check .
+uv run pytest ../../tests
+uv run ruff check ../../src . ../../tests
 ```
 
 Run frontend-specific commands from `apps/web` once its React project is
