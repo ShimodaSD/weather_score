@@ -28,7 +28,6 @@ def _database_url(database_name: str) -> str:
     return f"postgresql://postgres:{quote_plus(password)}@{host}:{port}/{name}"
 
 
-# Pools are created once and opened/closed by the application's lifespan.
 weatherapi_pool: Pool = AsyncConnectionPool(
     conninfo=_database_url("weatherapi"), open=False
 )
@@ -49,5 +48,4 @@ def get_database_pool(db_name: str) -> Pool:
     raise ValueError("Invalid database name. Use 'weatherapi' or 'garmin'.")
 
 
-# Preserve the original function name for existing callers.
 get_database_connection = get_database_pool
