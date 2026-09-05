@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from weather_score.application.main import humidity_interaction_penalty
@@ -25,7 +27,7 @@ async def test_humidity_interaction_penalty(temperature, humidity, expected):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("humidity", [-1, 101, None, "humid"])
-async def test_humidity_penalty_rejects_invalid_humidity(humidity):
+async def test_humidity_penalty_rejects_invalid_humidity(humidity: Any):
     with pytest.raises((TypeError, ValueError)):
         await humidity_interaction_penalty(25, humidity)
 
@@ -33,4 +35,5 @@ async def test_humidity_penalty_rejects_invalid_humidity(humidity):
 @pytest.mark.asyncio
 async def test_humidity_penalty_rejects_invalid_temperature():
     with pytest.raises(TypeError):
-        await humidity_interaction_penalty(None, 50)
+        invalid_temperature: Any = None
+        await humidity_interaction_penalty(invalid_temperature, 50)
