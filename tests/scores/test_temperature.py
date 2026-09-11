@@ -1,6 +1,6 @@
 import pytest
 
-from weather_score.application.main import temperature_penalty
+from weather_score.application.main import calculate_temperature_penalty
 
 
 @pytest.mark.asyncio
@@ -18,11 +18,13 @@ from weather_score.application.main import temperature_penalty
     ],
 )
 async def test_temperature_penalty(temperature, expected):
-    assert await temperature_penalty(temperature) == pytest.approx(expected, abs=0.001)
+    assert await calculate_temperature_penalty(temperature) == pytest.approx(
+        expected, abs=0.001
+    )
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("value", [None, "hot", float("inf"), float("nan")])
 async def test_temperature_penalty_rejects_invalid_values(value):
     with pytest.raises((TypeError, ValueError)):
-        await temperature_penalty(value)
+        await calculate_temperature_penalty(value)

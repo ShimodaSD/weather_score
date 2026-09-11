@@ -13,7 +13,7 @@ async def test_returns_elevation(monkeypatch):
     get = Mock(return_value=response)
     monkeypatch.setattr(openmeteo.requests, "get", get)
 
-    result = await openmeteo.get_openmeteo_altitude("-27.47", "153.03")
+    result = await openmeteo.fetch_elevation("-27.47", "153.03")
 
     assert result == {"elevation": [42.0]}
     get.assert_called_once_with(
@@ -30,7 +30,7 @@ async def test_propagates_http_errors(monkeypatch):
     monkeypatch.setattr(openmeteo.requests, "get", Mock(return_value=response))
 
     with pytest.raises(requests.HTTPError, match="bad gateway"):
-        await openmeteo.get_openmeteo_altitude("-27.47", "153.03")
+        await openmeteo.fetch_elevation("-27.47", "153.03")
 
 
 @pytest.mark.asyncio
@@ -42,7 +42,7 @@ async def test_propagates_timeouts(monkeypatch):
     )
 
     with pytest.raises(requests.Timeout, match="timed out"):
-        await openmeteo.get_openmeteo_altitude("-27.47", "153.03")
+        await openmeteo.fetch_elevation("-27.47", "153.03")
 
 
 @pytest.mark.asyncio
@@ -52,7 +52,7 @@ async def test_propagates_invalid_json(monkeypatch):
     monkeypatch.setattr(openmeteo.requests, "get", Mock(return_value=response))
 
     with pytest.raises(requests.JSONDecodeError):
-        await openmeteo.get_openmeteo_altitude("-27.47", "153.03")
+        await openmeteo.fetch_elevation("-27.47", "153.03")
 
 
 @pytest.mark.asyncio
@@ -63,4 +63,4 @@ async def test_rejects_malformed_elevation(monkeypatch, data):
     monkeypatch.setattr(openmeteo.requests, "get", Mock(return_value=response))
 
     with pytest.raises(TypeError, match="invalid elevation data"):
-        await openmeteo.get_openmeteo_altitude("-27.47", "153.03")
+        await openmeteo.fetch_elevation("-27.47", "153.03")

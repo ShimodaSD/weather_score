@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import pytest
 
-from weather_score.application.main import generate_grade
+from weather_score.application.main import calculate_activity_score
 
 
 def conditions(**overrides):
@@ -18,21 +18,21 @@ def conditions(**overrides):
 
 @pytest.mark.asyncio
 async def test_ideal_conditions_score_100():
-    assert await generate_grade(conditions(), {"elevation": [0]}) == 100
+    assert await calculate_activity_score(conditions(), {"elevation": [0]}) == 100
 
 
 @pytest.mark.asyncio
 async def test_combines_all_penalties():
     weather = conditions(temp_c=20, humidity=75, precip_mm=10, gust_kph=36)
 
-    assert await generate_grade(weather, {"elevation": [1000]}) == 75.33
+    assert await calculate_activity_score(weather, {"elevation": [1000]}) == 75.33
 
 
 @pytest.mark.asyncio
 async def test_extreme_conditions_are_clamped_to_zero():
     weather = conditions(temp_c=60, humidity=100, precip_mm=100, gust_kph=300)
 
-    assert await generate_grade(weather, {"elevation": [9000]}) == 0
+    assert await calculate_activity_score(weather, {"elevation": [9000]}) == 0
 
 
 @pytest.mark.asyncio
@@ -42,7 +42,7 @@ async def test_inputs_are_not_modified():
     original_weather = deepcopy(weather)
     original_altitude = deepcopy(altitude)
 
-    await generate_grade(weather, altitude)
+    await calculate_activity_score(weather, altitude)
 
     assert weather == original_weather
     assert altitude == original_altitude
@@ -65,4 +65,4 @@ async def test_inputs_are_not_modified():
 )
 async def test_rejects_missing_weather_or_altitude_values(weather, altitude):
     with pytest.raises((TypeError, ValueError)):
-        await generate_grade(weather, altitude)
+        await calculate_activity_score(weather, altitude)

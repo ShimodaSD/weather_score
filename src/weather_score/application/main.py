@@ -30,7 +30,7 @@ def _weather_values(weather: dict, altitude_data: dict) -> tuple[float, ...]:
     )
 
 
-async def generate_grade(weather, altitude_data) -> float:
+async def calculate_activity_score(weather, altitude_data) -> float:
     temp, humidity, precipitation, gust, altitude = _weather_values(
         weather, altitude_data
     )
@@ -42,11 +42,11 @@ async def generate_grade(weather, altitude_data) -> float:
         altitude_loss,
         precipitation_loss,
     ) = await asyncio.gather(
-        temperature_penalty(temp),
-        wind_penalty(gust / 3.6),
-        humidity_interaction_penalty(temp, humidity),
-        altitude_penalty(altitude),
-        rain_penalty(precipitation),
+        calculate_temperature_penalty(temp),
+        calculate_wind_penalty(gust / 3.6),
+        calculate_humidity_interaction_penalty(temp, humidity),
+        calculate_altitude_penalty(altitude),
+        calculate_rain_penalty(precipitation),
     )
 
     score = 100 - (
@@ -55,7 +55,9 @@ async def generate_grade(weather, altitude_data) -> float:
     return round(max(0.0, min(100.0, score)), 2)
 
 
-async def generate_grade_by_type(weather, altitude_data, training_type: str) -> float:
+async def calculate_activity_score_by_training_type(
+    weather, altitude_data, training_type: str
+) -> float:
     temp, humidity, precipitation, gust, altitude = _weather_values(
         weather, altitude_data
     )
@@ -67,11 +69,11 @@ async def generate_grade_by_type(weather, altitude_data, training_type: str) -> 
         altitude_loss,
         precipitation_loss,
     ) = await asyncio.gather(
-        temperature_penalty(temp),
-        wind_penalty(gust / 3.6),
-        humidity_interaction_penalty(temp, humidity),
-        altitude_penalty(altitude),
-        rain_penalty(precipitation),
+        calculate_temperature_penalty(temp),
+        calculate_wind_penalty(gust / 3.6),
+        calculate_humidity_interaction_penalty(temp, humidity),
+        calculate_altitude_penalty(altitude),
+        calculate_rain_penalty(precipitation),
     )
 
     total_loss = (
@@ -81,19 +83,19 @@ async def generate_grade_by_type(weather, altitude_data, training_type: str) -> 
     return round(max(0.0, min(100.0, 100 - total_loss)), 2)
 
 
-async def temperature_penalty(temperature_c: float) -> float:
+async def calculate_temperature_penalty(temperature_c: float) -> float:
     temperature_c = _number("temperature", temperature_c)
     return max(0, 0.0125 * temperature_c**2 - 0.07893 * temperature_c - 0.15)
 
 
-async def wind_penalty(gust_kph: float) -> float:
+async def calculate_wind_penalty(gust_kph: float) -> float:
     gust_kph = _number("gust", gust_kph)
     if gust_kph < 0:
         raise ValueError("gust cannot be negative.")
     return 0.1 * gust_kph**2 + 0.66 * gust_kph
 
 
-async def humidity_interaction_penalty(
+async def calculate_humidity_interaction_penalty(
     temperature_c: float,
     relative_humidity: float,
 ) -> float:
@@ -109,7 +111,7 @@ async def humidity_interaction_penalty(
     return penalty
 
 
-async def altitude_penalty(altitude_m: float) -> float:
+async def calculate_altitude_penalty(altitude_m: float) -> float:
     altitude_m = _number("altitude", altitude_m)
     if altitude_m <= 500:
         return 0.0
@@ -117,7 +119,7 @@ async def altitude_penalty(altitude_m: float) -> float:
     return 0.003 * (altitude_m - 500)
 
 
-async def rain_penalty(precip_mm: float) -> float:
+async def calculate_rain_penalty(precip_mm: float) -> float:
     precip_mm = _number("precipitation", precip_mm)
     if precip_mm < 0:
         raise ValueError("precipitation cannot be negative.")
