@@ -121,6 +121,9 @@ other environment-specific configuration outside source code.
 
 ## Configuration and security
 
+- For local development and verification, load environment variables from
+  `/Users/shimoda/repos/grade_activity/weather_score/.env`; reference the file
+  in commands without copying, displaying, or committing its contents.
 - Never commit `.env` files, API keys, passwords, access tokens, or database
   credentials.
 - Use environment variables for WeatherAPI, PostgreSQL, and auth settings.
@@ -146,6 +149,7 @@ commands are added.
 
 ## Python documentation convention
 
+- Follow the function naming convention in `docs/function-naming.md`.
 - Do not add inline or block `#` comments to Python files.
 - Runtime docstrings may document public modules, types, and functions.
 - Put implementation rationale, equations, research citations, limitations,

@@ -8,7 +8,7 @@ config.api_key["key"] = os.environ.get("WEATHER_API_KEY")
 instance = weatherapi.APIsApi(weatherapi.ApiClient(config))
 
 
-async def get_weatherapi_lat_long(latitude: str, longitude: str) -> dict:
+async def fetch_current_weather(latitude: str, longitude: str) -> dict:
     if not latitude or not longitude:
         raise ValueError("Latitude and longitude are required.")
 

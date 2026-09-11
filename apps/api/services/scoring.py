@@ -6,11 +6,13 @@ from numbers import Real
 
 import requests
 from fastapi import HTTPException, status
-
-from weather_score.application.main import generate_grade, generate_grade_by_type
+from weather_score.application.main import (
+    calculate_activity_score,
+    calculate_activity_score_by_training_type,
+)
 from weather_score.application.run_grade import RunGrade, calculate_run_grade
-from weather_score.weather.providers.openmeteo import get_openmeteo_altitude
-from weather_score.weather.providers.weather_api import get_weatherapi_lat_long
+from weather_score.weather.providers.openmeteo import fetch_elevation
+from weather_score.weather.providers.weather_api import fetch_current_weather
 
 try:
     from ..schemas.location import ErrorResponse
@@ -23,7 +25,7 @@ except ImportError:
     from services.geocoding import geocode_address
 
 
-async def score_address(
+async def score_activity_at_address(
     address: str,
     training_type: TrainingRunType | None = None,
 ) -> float | ErrorResponse:
@@ -38,12 +40,14 @@ async def score_address(
     longitude = coordinates.longitude.strip()
     try:
         weather, altitude = await asyncio.gather(
-            get_weatherapi_lat_long(latitude, longitude),
-            get_openmeteo_altitude(latitude, longitude),
+            fetch_current_weather(latitude, longitude),
+            fetch_elevation(latitude, longitude),
         )
         if training_type is not None:
-            return await generate_grade_by_type(weather, altitude, training_type)
-        return await generate_grade(weather, altitude)
+            return await calculate_activity_score_by_training_type(
+                weather, altitude, training_type
+            )
+        return await calculate_activity_score(weather, altitude)
     except (requests.RequestException, TimeoutError, TypeError, ValueError) as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -51,7 +55,7 @@ async def score_address(
         ) from error
 
 
-async def grade_run_address(
+async def grade_run_at_address(
     address: str,
     average_pace_minutes_per_km: float,
 ) -> RunGrade | ErrorResponse:
@@ -65,7 +69,7 @@ async def grade_run_address(
     latitude = coordinates.latitude.strip()
     longitude = coordinates.longitude.strip()
     try:
-        weather = await get_weatherapi_lat_long(latitude, longitude)
+        weather = await fetch_current_weather(latitude, longitude)
         gust_kph, wet_bulb_c = _run_conditions(weather)
 
         return calculate_run_grade(

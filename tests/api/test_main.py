@@ -93,10 +93,10 @@ def test_score_run_calls_services(monkeypatch):
     altitude = {"elevation": [10]}
     get_weather = AsyncMock(return_value=weather)
     get_altitude = AsyncMock(return_value=altitude)
-    generate_grade = AsyncMock(return_value=98.5)
-    monkeypatch.setattr(scoring, "get_weatherapi_lat_long", get_weather)
-    monkeypatch.setattr(scoring, "get_openmeteo_altitude", get_altitude)
-    monkeypatch.setattr(scoring, "generate_grade", generate_grade)
+    calculate_score = AsyncMock(return_value=98.5)
+    monkeypatch.setattr(scoring, "fetch_current_weather", get_weather)
+    monkeypatch.setattr(scoring, "fetch_elevation", get_altitude)
+    monkeypatch.setattr(scoring, "calculate_activity_score", calculate_score)
 
     response = client.get("/score/run", params={"address": "Brisbane"})
 
@@ -104,13 +104,13 @@ def test_score_run_calls_services(monkeypatch):
     assert response.json() == 98.5
     get_weather.assert_awaited_once_with("-27.47", "153.03")
     get_altitude.assert_awaited_once_with("-27.47", "153.03")
-    generate_grade.assert_awaited_once_with(weather, altitude)
+    calculate_score.assert_awaited_once_with(weather, altitude)
 
 
 def test_score_run_stops_when_address_is_not_found(monkeypatch):
     monkeypatch.setattr(scoring, "geocode_address", AsyncMock(return_value=None))
     get_weather = AsyncMock()
-    monkeypatch.setattr(scoring, "get_weatherapi_lat_long", get_weather)
+    monkeypatch.setattr(scoring, "fetch_current_weather", get_weather)
 
     response = client.get("/score/run", params={"address": "Unknown"})
 
@@ -134,10 +134,10 @@ def test_score_run_provider_failure_returns_bad_gateway(monkeypatch):
     )
     monkeypatch.setattr(
         scoring,
-        "get_weatherapi_lat_long",
+        "fetch_current_weather",
         AsyncMock(side_effect=TimeoutError("timeout")),
     )
-    monkeypatch.setattr(scoring, "get_openmeteo_altitude", AsyncMock(return_value={}))
+    monkeypatch.setattr(scoring, "fetch_elevation", AsyncMock(return_value={}))
 
     response = client.get("/score/run", params={"address": "Brisbane"})
 
@@ -159,13 +159,17 @@ def test_score_run_by_type_uses_training_type(monkeypatch):
     weather = {"current": {"temp_c": 7}}
     altitude = {"elevation": [10]}
     monkeypatch.setattr(
-        scoring, "get_weatherapi_lat_long", AsyncMock(return_value=weather)
+        scoring, "fetch_current_weather", AsyncMock(return_value=weather)
     )
     monkeypatch.setattr(
-        scoring, "get_openmeteo_altitude", AsyncMock(return_value=altitude)
+        scoring, "fetch_elevation", AsyncMock(return_value=altitude)
     )
-    generate_grade_by_type = AsyncMock(return_value=99)
-    monkeypatch.setattr(scoring, "generate_grade_by_type", generate_grade_by_type)
+    calculate_score_by_type = AsyncMock(return_value=99)
+    monkeypatch.setattr(
+        scoring,
+        "calculate_activity_score_by_training_type",
+        calculate_score_by_type,
+    )
 
     response = client.get(
         "/score/run/by-type",
@@ -174,7 +178,7 @@ def test_score_run_by_type_uses_training_type(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == 99
-    generate_grade_by_type.assert_awaited_once_with(weather, altitude, "easy")
+    calculate_score_by_type.assert_awaited_once_with(weather, altitude, "easy")
 
 
 def test_score_run_by_type_rejects_unknown_type():
@@ -213,7 +217,7 @@ def test_grade_run_returns_factor_breakdown(monkeypatch):
     get_weather = AsyncMock(
         return_value={"current": {"gust_kph": 12, "wetbulb_c": 15}}
     )
-    monkeypatch.setattr(scoring, "get_weatherapi_lat_long", get_weather)
+    monkeypatch.setattr(scoring, "fetch_current_weather", get_weather)
 
     response = client.post(
         "/grade/run",
@@ -294,7 +298,7 @@ def test_grade_run_stops_when_address_is_not_found(monkeypatch):
     monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
     monkeypatch.setattr(scoring, "geocode_address", AsyncMock(return_value=None))
     get_weather = AsyncMock()
-    monkeypatch.setattr(scoring, "get_weatherapi_lat_long", get_weather)
+    monkeypatch.setattr(scoring, "fetch_current_weather", get_weather)
 
     response = client.post(
         "/grade/run",
@@ -324,7 +328,7 @@ def test_grade_run_provider_failure_returns_bad_gateway(monkeypatch):
     )
     monkeypatch.setattr(
         scoring,
-        "get_weatherapi_lat_long",
+        "fetch_current_weather",
         AsyncMock(return_value={"current": {"gust_kph": 12}}),
     )
 

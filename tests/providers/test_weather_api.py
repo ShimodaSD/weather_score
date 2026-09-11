@@ -10,7 +10,7 @@ async def test_returns_weather_for_coordinates(monkeypatch):
     realtime_weather = Mock(return_value={"current": {"temp_c": 20}})
     monkeypatch.setattr(weather_api.instance, "realtime_weather", realtime_weather)
 
-    result = await weather_api.get_weatherapi_lat_long("-27.47", "153.03")
+    result = await weather_api.fetch_current_weather("-27.47", "153.03")
 
     assert result == {"current": {"temp_c": 20}}
     realtime_weather.assert_called_once_with("-27.47,153.03")
@@ -22,7 +22,7 @@ async def test_propagates_provider_errors(monkeypatch):
     monkeypatch.setattr(weather_api.instance, "realtime_weather", realtime_weather)
 
     with pytest.raises(TimeoutError, match="timed out"):
-        await weather_api.get_weatherapi_lat_long("-27.47", "153.03")
+        await weather_api.fetch_current_weather("-27.47", "153.03")
 
 
 @pytest.mark.asyncio
@@ -33,10 +33,10 @@ async def test_rejects_malformed_weather(monkeypatch, response):
     )
 
     with pytest.raises(TypeError, match="invalid weather data"):
-        await weather_api.get_weatherapi_lat_long("-27.47", "153.03")
+        await weather_api.fetch_current_weather("-27.47", "153.03")
 
 
 @pytest.mark.asyncio
 async def test_rejects_missing_coordinates():
     with pytest.raises(ValueError, match="required"):
-        await weather_api.get_weatherapi_lat_long("", "153.03")
+        await weather_api.fetch_current_weather("", "153.03")

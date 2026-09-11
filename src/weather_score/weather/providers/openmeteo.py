@@ -3,8 +3,8 @@ import asyncio
 import requests
 
 
-async def get_openmeteo_altitude(lat: str, lon: str) -> dict:
-    url = f"https://api.open-meteo.com/v1/elevation?latitude={lat}&longitude={lon}"
+async def fetch_elevation(latitude: str, longitude: str) -> dict:
+    url = f"https://api.open-meteo.com/v1/elevation?latitude={latitude}&longitude={longitude}"
     response = await asyncio.to_thread(requests.get, url, timeout=10)
     response.raise_for_status()
     data = response.json()
