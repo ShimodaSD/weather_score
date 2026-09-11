@@ -3,11 +3,11 @@
 from fastapi import APIRouter
 
 try:
-    from ..schemas.location import ErrorResponse
+    from ..schemas.location import ErrorResponse, LocationOptionsResponse
     from ..schemas.score import ScoreResponse, TrainingRunType
     from ..services.scoring import score_activity_at_address
 except ImportError:
-    from schemas.location import ErrorResponse
+    from schemas.location import ErrorResponse, LocationOptionsResponse
     from schemas.score import ScoreResponse, TrainingRunType
     from services.scoring import score_activity_at_address
 
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/score", tags=["Score"])
 
 
 @router.get("/run", response_model=ScoreResponse, summary="Score running conditions")
-async def score_run(address: str) -> float | ErrorResponse:
+async def score_run(address: str) -> float | ErrorResponse | LocationOptionsResponse:
     """Score the running conditions at an address."""
     return await score_activity_at_address(address)
 
@@ -28,6 +28,6 @@ async def score_run(address: str) -> float | ErrorResponse:
 async def score_run_by_type(
     address: str,
     training_type: TrainingRunType,
-) -> float | ErrorResponse:
+) -> float | ErrorResponse | LocationOptionsResponse:
     """Score conditions for a specific running workout type."""
     return await score_activity_at_address(address, training_type)

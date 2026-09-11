@@ -52,6 +52,47 @@ def test_geocodes_address(monkeypatch):
     get.assert_called_once()
 
 
+def test_ambiguous_address_returns_options_without_fetching_weather(monkeypatch):
+    options = [
+        {
+            "display_name": "Springfield, Queensland",
+            "lat": "-24.92",
+            "lon": "152.32",
+        },
+        {
+            "display_name": "Springfield, Victoria",
+            "lat": "-37.41",
+            "lon": "144.82",
+        },
+    ]
+    monkeypatch.setattr(
+        geocoding.requests,
+        "get",
+        Mock(return_value=response_with(options)),
+    )
+    get_weather = AsyncMock()
+    monkeypatch.setattr(scoring, "fetch_current_weather", get_weather)
+
+    response = client.get("/score/run", params={"address": "Springfield"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "options": [
+            {
+                "name": "Springfield, Queensland",
+                "latitude": "-24.92",
+                "longitude": "152.32",
+            },
+            {
+                "name": "Springfield, Victoria",
+                "latitude": "-37.41",
+                "longitude": "144.82",
+            },
+        ]
+    }
+    get_weather.assert_not_awaited()
+
+
 def test_unknown_address_returns_error(monkeypatch):
     monkeypatch.setattr(
         geocoding.requests,

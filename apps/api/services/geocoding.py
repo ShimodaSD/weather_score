@@ -6,9 +6,17 @@ import requests
 from fastapi import HTTPException, status
 
 try:
-    from ..schemas.location import CoordinatesResponse
+    from ..schemas.location import (
+        CoordinatesResponse,
+        LocationOption,
+        LocationOptionsResponse,
+    )
 except ImportError:
-    from schemas.location import CoordinatesResponse
+    from schemas.location import (
+        CoordinatesResponse,
+        LocationOption,
+        LocationOptionsResponse,
+    )
 
 NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_HEADERS = {
@@ -17,13 +25,15 @@ NOMINATIM_HEADERS = {
 }
 
 
-async def geocode_address(address: str) -> CoordinatesResponse | None:
+async def geocode_address(
+    address: str,
+) -> CoordinatesResponse | LocationOptionsResponse | None:
     """Resolve an address using OpenStreetMap Nominatim."""
     try:
         response = await asyncio.to_thread(
             requests.get,
             NOMINATIM_SEARCH_URL,
-            params={"q": address, "format": "json", "limit": 1},
+            params={"q": address, "format": "json", "limit": 5},
             headers=NOMINATIM_HEADERS,
             timeout=10,
         )
@@ -37,6 +47,17 @@ async def geocode_address(address: str) -> CoordinatesResponse | None:
 
     if not data:
         return None
+    if len(data) > 1:
+        return LocationOptionsResponse(
+            options=[
+                LocationOption(
+                    name=option["display_name"],
+                    latitude=str(option["lat"]),
+                    longitude=str(option["lon"]),
+                )
+                for option in data
+            ]
+        )
     return CoordinatesResponse(
         latitude=str(data[0]["lat"]),
         longitude=str(data[0]["lon"]),

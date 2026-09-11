@@ -15,26 +15,27 @@ from weather_score.weather.providers.openmeteo import fetch_elevation
 from weather_score.weather.providers.weather_api import fetch_current_weather
 
 try:
-    from ..schemas.location import ErrorResponse
+    from ..schemas.location import ErrorResponse, LocationOptionsResponse
     from ..schemas.score import TrainingRunType
     from .geocoding import geocode_address
 except ImportError:
-    from schemas.location import ErrorResponse
+    from schemas.location import ErrorResponse, LocationOptionsResponse
     from schemas.score import TrainingRunType
-
     from services.geocoding import geocode_address
 
 
 async def score_activity_at_address(
     address: str,
     training_type: TrainingRunType | None = None,
-) -> float | ErrorResponse:
+) -> float | ErrorResponse | LocationOptionsResponse:
     """Fetch conditions for an address and calculate its activity score."""
     coordinates = await geocode_address(address)
     if coordinates is None:
         return ErrorResponse(
             error="Could not retrieve latitude and longitude for the given address."
         )
+    if isinstance(coordinates, LocationOptionsResponse):
+        return coordinates
 
     latitude = coordinates.latitude.strip()
     longitude = coordinates.longitude.strip()
@@ -58,13 +59,15 @@ async def score_activity_at_address(
 async def grade_run_at_address(
     address: str,
     average_pace_minutes_per_km: float,
-) -> RunGrade | ErrorResponse:
+) -> RunGrade | ErrorResponse | LocationOptionsResponse:
     """Fetch current conditions for an address and grade a running pace."""
     coordinates = await geocode_address(address)
     if coordinates is None:
         return ErrorResponse(
             error="Could not retrieve latitude and longitude for the given address."
         )
+    if isinstance(coordinates, LocationOptionsResponse):
+        return coordinates
 
     latitude = coordinates.latitude.strip()
     longitude = coordinates.longitude.strip()
