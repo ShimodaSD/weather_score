@@ -6,6 +6,13 @@ test('running score client validates responses and handles service failures', as
   const mock = t.mock.method(globalThis, 'fetch', async () => new Response('82.5'))
   assert.equal(await fetchRunningScore('/api/', ' Brisbane & surrounds '), 82.5)
   assert.equal(mock.mock.calls[0].arguments[0], '/api/score/run?address=Brisbane+%26+surrounds')
+  mock.mock.mockImplementation(async () => new Response('{"options":[{"name":"Springfield, Victoria","latitude":"-37.41","longitude":"144.82"}]}'))
+  const options = await fetchRunningScore('/api', 'Springfield')
+  assert.deepEqual(options, [{ name: 'Springfield, Victoria', latitude: '-37.41', longitude: '144.82' }])
+  assert(Array.isArray(options))
+  mock.mock.mockImplementation(async () => new Response('88'))
+  assert.equal(await fetchRunningScore('/api', 'Springfield', options[0]), 88)
+  assert.equal(mock.mock.calls.at(-1)?.arguments[0], '/api/score/run?address=Springfield&latitude=-37.41&longitude=144.82')
   for (const score of [0, 100]) {
     mock.mock.mockImplementation(async () => new Response(String(score)))
     assert.equal(await fetchRunningScore('/api', 'Brisbane'), score)

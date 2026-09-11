@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent, type CSSProperties } from 'react'
-import { fetchRunningScore } from './api'
+import { fetchRunningScore, type LocationOption } from './api'
 
 function Icon({ name, className = '' }: { name: 'wind' | 'arrow' | 'pin' | 'run' | 'bike' | 'sun'; className?: string }) {
   const paths = {
@@ -18,6 +18,8 @@ export default function App() {
   const [result, setResult] = useState<{ score: number; address: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [options, setOptions] = useState<LocationOption[]>([])
+  const [selectedOption, setSelectedOption] = useState('')
   const busy = useRef(false)
 
   async function checkConditions(event: FormEvent<HTMLFormElement>) {
@@ -30,8 +32,15 @@ export default function App() {
     setError('')
     setResult(null)
     try {
-      const score = await fetchRunningScore(import.meta.env.VITE_API_BASE_URL || '/api', location)
-      setResult({ score, address: location })
+      const selected = options[Number(selectedOption)]
+      const response = await fetchRunningScore(import.meta.env.VITE_API_BASE_URL || '/api', location, selected)
+      if (typeof response === 'number') {
+        setResult({ score: response, address: selected?.name ?? location })
+        setOptions([])
+      } else {
+        setOptions(response)
+        setSelectedOption('')
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Something went wrong. Please try again.')
     } finally {
@@ -62,10 +71,11 @@ export default function App() {
           <p className="muted">A good day outside starts right here.</p>
           <form onSubmit={checkConditions}>
             <label htmlFor="address">Your location</label>
-            <div className={`location-input ${error ? 'input-error' : ''}`}><Icon name="pin" /><input id="address" name="address" placeholder="Town, suburb, or street address" value={address} onChange={(event) => setAddress(event.target.value)} required maxLength={300} disabled={loading} aria-describedby={error ? 'location-hint search-error' : 'location-hint'} /></div>
+            <div className={`location-input ${error ? 'input-error' : ''}`}><Icon name="pin" /><input id="address" name="address" placeholder="Town, suburb, or street address" value={address} onChange={(event) => { setAddress(event.target.value); setOptions([]); setSelectedOption('') }} required maxLength={300} disabled={loading} aria-describedby={error ? 'location-hint search-error' : 'location-hint'} /></div>
             <p id="location-hint" className="field-hint">Add your city or country for a more accurate match.</p>
+            {options.length > 0 && <><label className="location-choice-label" htmlFor="location-choice">Which place did you mean?</label><select id="location-choice" value={selectedOption} onChange={(event) => setSelectedOption(event.target.value)} required disabled={loading}><option value="">Select a location</option>{options.map((option, index) => <option key={`${option.latitude},${option.longitude}`} value={index}>{option.name}</option>)}</select></>}
             <fieldset><legend>Your activity</legend><div className="activities"><div className="activity selected"><Icon name="run" /><span>Running</span><span className="selection-dot" aria-label="Selected" /></div><div className="activity unavailable"><Icon name="bike" /><span>Cycling</span><span className="soon">Soon</span></div></div></fieldset>
-            <button className="submit" type="submit" disabled={loading}>{loading ? 'Checking conditions…' : 'Check my conditions'}<Icon name="arrow" /></button>
+            <button className="submit" type="submit" disabled={loading}>{loading ? 'Checking conditions…' : options.length ? 'Use this location' : 'Check my conditions'}<Icon name="arrow" /></button>
             {error && <p className="error-message" id="search-error" role="alert">{error}</p>}
             <p className="form-note">Your location is only used to find your conditions.</p>
           </form>
