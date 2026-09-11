@@ -148,6 +148,33 @@ def test_score_run_calls_services(monkeypatch):
     calculate_score.assert_awaited_once_with(weather, altitude)
 
 
+def test_score_run_uses_selected_coordinates(monkeypatch):
+    geocode = AsyncMock()
+    monkeypatch.setattr(scoring, "geocode_address", geocode)
+    monkeypatch.setattr(scoring, "fetch_current_weather", AsyncMock(return_value={}))
+    monkeypatch.setattr(scoring, "fetch_elevation", AsyncMock(return_value={}))
+    monkeypatch.setattr(scoring, "calculate_activity_score", AsyncMock(return_value=88))
+
+    response = client.get(
+        "/score/run",
+        params={"address": "Springfield", "latitude": -37.41, "longitude": 144.82},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == 88
+    geocode.assert_not_awaited()
+    scoring.fetch_current_weather.assert_awaited_once_with("-37.41", "144.82")
+
+
+def test_score_run_rejects_incomplete_selected_coordinates():
+    response = client.get(
+        "/score/run",
+        params={"address": "Springfield", "latitude": -37.41},
+    )
+
+    assert response.status_code == 422
+
+
 def test_score_run_stops_when_address_is_not_found(monkeypatch):
     monkeypatch.setattr(scoring, "geocode_address", AsyncMock(return_value=None))
     get_weather = AsyncMock()
