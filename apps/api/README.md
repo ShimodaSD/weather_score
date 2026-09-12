@@ -14,3 +14,11 @@ as an editable package. For IDE launches, select the repository-root
 
 Run checks from this directory with `uv run pytest ../../tests` and
 `uv run ruff check ../../src . ../../tests`.
+
+Set `GARMINDB_PATH` to GarminDB's `garmin_activities.db`, then upload every
+activity to PostgreSQL with `POST /garmin/sync`. The service reads and writes
+activities in bounded batches without blocking the API event loop.
+
+Run Uvicorn with `--log-level debug` to log each completed sync batch. Failures
+log the phase, batch number, and synchronized row count; API responses distinguish
+invalid GarminDB input (`422`) from unavailable PostgreSQL (`503`).
