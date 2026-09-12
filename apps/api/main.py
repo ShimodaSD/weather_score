@@ -21,6 +21,8 @@ OPENAPI_TAGS = [
     {"name": "Score", "description": "Weather-based activity scores."},
     {"name": "Grade", "description": "Research-backed activity grading."},
     {"name": "Activities", "description": "Historical activity statistics."},
+    {"name": "Garmin", "description": "GarminDB activity synchronization."},
+
 ]
 
 

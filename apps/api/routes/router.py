@@ -6,6 +6,7 @@ try:
     from ..security import require_access_token
     from ..security import router as security_router
 except ImportError:
+    from security import require_access_token
     from security import router as security_router
 
 from .garmin import router as garmin_router
@@ -20,6 +21,10 @@ api_router.include_router(security_router)
 api_router.include_router(location_router)
 api_router.include_router(score_router)
 api_router.include_router(garmin_router)
+api_router.include_router(
+    garmin_router,
+    dependencies=[Depends(require_access_token)],
+)
 api_router.include_router(
     run_grade_router,
     dependencies=[Depends(require_access_token)],

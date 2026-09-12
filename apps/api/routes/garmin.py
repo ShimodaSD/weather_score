@@ -12,7 +12,7 @@ except ImportError:
     from schemas.activity import ActivityDetailResponse, ActivityResponse
     from security import require_access_token
 
-from .connections.database import garmin_pool
+from fastapi import APIRouter
 
 router = APIRouter(
     prefix="/activities",
