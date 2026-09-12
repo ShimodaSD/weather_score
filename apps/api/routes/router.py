@@ -20,6 +20,7 @@ api_router.include_router(system_router)
 api_router.include_router(security_router)
 api_router.include_router(location_router)
 api_router.include_router(score_router)
+api_router.include_router(garmin_router)
 api_router.include_router(
     garmin_router,
     dependencies=[Depends(require_access_token)],
