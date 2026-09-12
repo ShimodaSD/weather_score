@@ -42,7 +42,36 @@ def test_activities_require_bearer_token():
     response = client.get("/activities")
 
     assert response.status_code == 401
+    assert client.get("/activities/index").status_code == 401
     assert client.get("/activities/123/summary").status_code == 401
+    assert client.get("/activities/running/predictions").status_code == 401
+
+
+def test_running_predictions_use_summary_data_only(monkeypatch):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    fetch = AsyncMock(return_value=[{
+        "activity_id": "123",
+        "started_at": ACTIVITY["started_at"],
+        "distance_km": 10.0,
+        "moving_seconds": 3000.0,
+    }])
+    monkeypatch.setattr(garmin, "fetch_running_prediction_inputs", fetch)
+
+    response = client.get(
+        "/activities/running/predictions",
+        headers={"Authorization": "Bearer token"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["run_count"] == 1
+    assert data["longest_run_km"] == 10.0
+    assert data["model_status"] == "range"
+    assert len(data["predictions"]) == 4
+    assert data["basis"][0]["source_activity_id"] == "123"
+    assert data["predictions"][1]["predicted_seconds"] is None
+    assert data["predictions"][1]["low_seconds"] == data["predictions"][1]["high_seconds"]
+    fetch.assert_awaited_once_with()
 
 
 def test_lists_visualization_ready_activities(monkeypatch):
@@ -52,13 +81,35 @@ def test_lists_visualization_ready_activities(monkeypatch):
 
     response = client.get(
         "/activities",
-        params={"activity_type": "running", "limit": 20},
+        params={"activity_type": "running", "limit": 20, "offset": 40},
         headers={"Authorization": "Bearer token"},
     )
 
     assert response.status_code == 200
     assert response.json()[0] == ACTIVITY | {"started_at": "2026-09-11T06:30:00Z"}
-    fetch.assert_awaited_once_with("running", 20)
+    fetch.assert_awaited_once_with("running", 20, 40)
+
+
+def test_lists_lightweight_activity_index(monkeypatch):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    fetch = AsyncMock(return_value=[{
+        "activity_id": "123",
+        "started_at": ACTIVITY["started_at"],
+        "activity_type": "running",
+        "name": "Morning Run",
+    }])
+    monkeypatch.setattr(garmin, "fetch_activity_index", fetch)
+
+    response = client.get("/activities/index", headers={"Authorization": "Bearer token"})
+
+    assert response.status_code == 200
+    assert response.json() == [{
+        "activity_id": "123",
+        "started_at": "2026-09-11T06:30:00Z",
+        "activity_type": "running",
+        "name": "Morning Run",
+    }]
+    fetch.assert_awaited_once_with()
 
 
 def test_returns_one_activity(monkeypatch):

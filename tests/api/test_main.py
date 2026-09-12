@@ -370,6 +370,30 @@ def test_login_returns_access_token(monkeypatch):
     assert response.json() == {"access_token": "token", "token_type": "bearer"}
 
 
+def test_browser_session_expires_after_one_day_and_logout_clears_it(monkeypatch):
+    monkeypatch.setattr(auth, "AUTH_USERNAME", "runner")
+    monkeypatch.setattr(auth, "AUTH_PASSWORD", "secret")
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    now = 1_000_000
+    monkeypatch.setattr(auth.time, "time", lambda: now)
+    browser = TestClient(main.app, raise_server_exceptions=False)
+
+    login = browser.post("/token", data={"username": "runner", "password": "secret"})
+    assert login.status_code == 200
+    assert "Max-Age=86400" in login.headers["set-cookie"]
+    assert "httponly" in login.headers["set-cookie"].lower()
+    assert browser.get("/session").json() == {"authenticated": True}
+    assert browser.post("/grade/run").status_code == 422
+
+    assert browser.post("/logout").status_code == 204
+    assert browser.get("/session").status_code == 401
+
+    browser.post("/token", data={"username": "runner", "password": "secret"})
+    now += auth.SESSION_SECONDS
+    assert browser.get("/session").status_code == 401
+    assert browser.post("/grade/run").status_code == 401
+
+
 def test_login_rejects_incorrect_credentials(monkeypatch):
     monkeypatch.setattr(auth, "AUTH_USERNAME", "runner")
     monkeypatch.setattr(auth, "AUTH_PASSWORD", "secret")
