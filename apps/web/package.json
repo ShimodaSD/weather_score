@@ -8,9 +8,10 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test src/api.test.ts vite.config.test.ts"
+    "test": "node --experimental-strip-types --test src/api.test.ts src/activityChart.test.ts vite.config.test.ts"
   },
   "dependencies": {
+    "chart.js": "^4.5.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

@@ -26,13 +26,25 @@ uses `VITE_API_BASE_URL`. Only public configuration belongs in `VITE_` variables
 they are bundled into the browser application. Do not put backend credentials
 or shared access tokens in frontend environment variables.
 
-The page signs in through `POST /token`, then calls bearer-protected
+The header sign-in dialog uses `POST /token`. The Conditions page then calls bearer-protected
 `POST /grade/run?address=...` with an average pace such as `5:20`. It shows the
 API's score and factor breakdown. Ambiguous addresses return location options;
 the selected option is sent back as `latitude` and `longitude` query parameters.
-The token stays in page memory and is cleared on sign-out or authorization
-failure. No credentials or token are embedded or persisted in the frontend.
-Cycling is marked as coming soon because no cycling endpoint is currently wired.
+Sign-in sets a signed, HttpOnly browser cookie that expires after one day. The
+web app restores the session on reload through `GET /session`, sends the cookie
+with protected requests, and clears it through `POST /logout` on sign-out. The
+bearer token response remains available to API clients but is not stored by the
+web app. Credentials and access tokens are not embedded in frontend assets.
+The Activities tab uses the same browser session to load the lightweight
+`GET /activities/index` list. Selecting an activity loads its summary from
+`GET /activities/{id}/summary`; the full details page at `#activity?aid=...`
+loads laps, splits, recorded samples, and devices from `GET /activities/{id}`.
+Chart.js is loaded only on the full detail page to show heart rate and pace
+from recorded samples on separate axes.
+When signed out, the Activities page shows its own sign-in form.
+The `#predictions` page calls `GET /activities/running/predictions` and shows
+study-modelled 5, 10, 21, and 42 km times or bounded ranges, with links to the
+recorded benchmark runs.
 
 ```bash
 pnpm test

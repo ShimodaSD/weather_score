@@ -121,6 +121,16 @@ or service layer rather than scattering `fetch` calls through components.
 Frontend code should consume the documented API contract, display loading and
 error states, and not reimplement backend scoring rules. Keep API URLs and
 other environment-specific configuration outside source code.
+The Activities dashboard loads `GET /activities/index` for its lightweight
+list, `GET /activities/{id}/summary` for a selection, and `GET /activities/{id}`
+on the full detail page. All three require the bearer token. Dashboard client
+contracts are checked in `apps/web/src/api.test.ts`.
+The `#predictions` page uses the protected
+`GET /activities/running/predictions` contract. Its calculation lives in
+`src/weather_score/application/running_predictions.py` and is tested in
+`tests/scores/test_running_predictions.py` and `tests/api/test_activities.py`.
+Chart conversion is checked in `apps/web/src/activityChart.test.ts`; run it with
+the frontend `pnpm test` command.
 
 ## Configuration and security
 
