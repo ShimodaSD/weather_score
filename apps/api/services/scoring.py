@@ -35,10 +35,9 @@ except ImportError:
 async def score_activity_at_address(
     address: str,
     training_type: TrainingRunType | None = None,
-    coordinates: CoordinatesResponse | None = None,
 ) -> float | ErrorResponse | LocationOptionsResponse:
     """Fetch conditions for an address and calculate its activity score."""
-    coordinates = coordinates or await geocode_address(address)
+    coordinates = await geocode_address(address)
     if coordinates is None:
         return ErrorResponse(
             error="Could not retrieve latitude and longitude for the given address."
@@ -68,9 +67,10 @@ async def score_activity_at_address(
 async def grade_run_at_address(
     address: str,
     average_pace_minutes_per_km: float,
+    coordinates: CoordinatesResponse | None = None,
 ) -> RunGrade | ErrorResponse | LocationOptionsResponse:
     """Fetch current conditions for an address and grade a running pace."""
-    coordinates = await geocode_address(address)
+    coordinates = coordinates or await geocode_address(address)
     if coordinates is None:
         return ErrorResponse(
             error="Could not retrieve latitude and longitude for the given address."

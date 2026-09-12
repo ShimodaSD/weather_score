@@ -1,5 +1,7 @@
 import importlib
+import json
 import os
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -34,11 +36,14 @@ def test_root_returns_service_status():
     assert response.json() == {"status": "running"}
 
 
-@pytest.mark.parametrize("path", ["/address-to-lat-long", "/score/run"])
-def test_address_is_required(path):
-    response = client.get(path)
+def test_address_is_required():
+    response = client.get("/address-to-lat-long")
 
     assert response.status_code == 422
+
+
+def test_old_score_run_route_is_gone():
+    assert client.get("/score/run", params={"address": "Brisbane"}).status_code == 404
 
 
 def test_geocodes_address(monkeypatch):
@@ -53,6 +58,7 @@ def test_geocodes_address(monkeypatch):
 
 
 def test_ambiguous_address_returns_options_without_fetching_weather(monkeypatch):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
     options = [
         {
             "display_name": "Springfield, Queensland",
@@ -73,7 +79,12 @@ def test_ambiguous_address_returns_options_without_fetching_weather(monkeypatch)
     get_weather = AsyncMock()
     monkeypatch.setattr(scoring, "fetch_current_weather", get_weather)
 
-    response = client.get("/score/run", params={"address": "Springfield"})
+    response = client.post(
+        "/grade/run",
+        params={"address": "Springfield"},
+        headers={"Authorization": "Bearer token"},
+        json={"average_pace_minutes_per_km": "5:20"},
+    )
 
     assert response.status_code == 200
     assert response.json() == {
@@ -117,100 +128,6 @@ def test_geocoding_failure_returns_bad_gateway(monkeypatch):
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Could not retrieve coordinates."}
-
-
-def test_score_run_calls_services(monkeypatch):
-    monkeypatch.setattr(
-        scoring,
-        "geocode_address",
-        AsyncMock(
-            return_value=location_schemas.CoordinatesResponse(
-                latitude=" -27.47 ",
-                longitude=" 153.03 ",
-            )
-        ),
-    )
-    weather = {"current": {"temp_c": 7}}
-    altitude = {"elevation": [10]}
-    get_weather = AsyncMock(return_value=weather)
-    get_altitude = AsyncMock(return_value=altitude)
-    calculate_score = AsyncMock(return_value=98.5)
-    monkeypatch.setattr(scoring, "fetch_current_weather", get_weather)
-    monkeypatch.setattr(scoring, "fetch_elevation", get_altitude)
-    monkeypatch.setattr(scoring, "calculate_activity_score", calculate_score)
-
-    response = client.get("/score/run", params={"address": "Brisbane"})
-
-    assert response.status_code == 200
-    assert response.json() == 98.5
-    get_weather.assert_awaited_once_with("-27.47", "153.03")
-    get_altitude.assert_awaited_once_with("-27.47", "153.03")
-    calculate_score.assert_awaited_once_with(weather, altitude)
-
-
-def test_score_run_uses_selected_coordinates(monkeypatch):
-    geocode = AsyncMock()
-    monkeypatch.setattr(scoring, "geocode_address", geocode)
-    monkeypatch.setattr(scoring, "fetch_current_weather", AsyncMock(return_value={}))
-    monkeypatch.setattr(scoring, "fetch_elevation", AsyncMock(return_value={}))
-    monkeypatch.setattr(scoring, "calculate_activity_score", AsyncMock(return_value=88))
-
-    response = client.get(
-        "/score/run",
-        params={"address": "Springfield", "latitude": -37.41, "longitude": 144.82},
-    )
-
-    assert response.status_code == 200
-    assert response.json() == 88
-    geocode.assert_not_awaited()
-    scoring.fetch_current_weather.assert_awaited_once_with("-37.41", "144.82")
-
-
-def test_score_run_rejects_incomplete_selected_coordinates():
-    response = client.get(
-        "/score/run",
-        params={"address": "Springfield", "latitude": -37.41},
-    )
-
-    assert response.status_code == 422
-
-
-def test_score_run_stops_when_address_is_not_found(monkeypatch):
-    monkeypatch.setattr(scoring, "geocode_address", AsyncMock(return_value=None))
-    get_weather = AsyncMock()
-    monkeypatch.setattr(scoring, "fetch_current_weather", get_weather)
-
-    response = client.get("/score/run", params={"address": "Unknown"})
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "error": "Could not retrieve latitude and longitude for the given address."
-    }
-    get_weather.assert_not_awaited()
-
-
-def test_score_run_provider_failure_returns_bad_gateway(monkeypatch):
-    monkeypatch.setattr(
-        scoring,
-        "geocode_address",
-        AsyncMock(
-            return_value=location_schemas.CoordinatesResponse(
-                latitude="-27.47",
-                longitude="153.03",
-            )
-        ),
-    )
-    monkeypatch.setattr(
-        scoring,
-        "fetch_current_weather",
-        AsyncMock(side_effect=TimeoutError("timeout")),
-    )
-    monkeypatch.setattr(scoring, "fetch_elevation", AsyncMock(return_value={}))
-
-    response = client.get("/score/run", params={"address": "Brisbane"})
-
-    assert response.status_code == 502
-    assert response.json() == {"detail": "Could not retrieve weather data."}
 
 
 def test_score_run_by_type_uses_training_type(monkeypatch):
@@ -297,14 +214,43 @@ def test_grade_run_returns_factor_breakdown(monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "score": 96.53,
-        "running_speed_kph": 11.25,
-        "relative_air_speed_kph": 23.25,
-        "wind_metabolic_change_percent": 1.97,
-        "thermal_performance_loss_percent": 1.5,
-    }
+    contract = Path(__file__).parents[1] / "contracts" / "run_grade.json"
+    assert response.json() == json.loads(contract.read_text())
     get_weather.assert_awaited_once_with("-27.47", "153.03")
+
+
+def test_grade_run_uses_selected_coordinates(monkeypatch):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    geocode = AsyncMock()
+    monkeypatch.setattr(scoring, "geocode_address", geocode)
+    get_weather = AsyncMock(return_value={"current": {"gust_kph": 12, "wetbulb_c": 15}})
+    monkeypatch.setattr(scoring, "fetch_current_weather", get_weather)
+
+    response = client.post(
+        "/grade/run",
+        params={"address": "Springfield", "latitude": -37.41, "longitude": 144.82},
+        headers={"Authorization": "Bearer token"},
+        json={"average_pace_minutes_per_km": "5:20"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["score"] == 96.53
+    geocode.assert_not_awaited()
+    get_weather.assert_awaited_once_with("-37.41", "144.82")
+
+
+@pytest.mark.parametrize(
+    "coordinates", [{"latitude": -37.41}, {"latitude": 91, "longitude": 144.82}]
+)
+def test_grade_run_rejects_invalid_coordinates(monkeypatch, coordinates):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    response = client.post(
+        "/grade/run",
+        params={"address": "Springfield", **coordinates},
+        headers={"Authorization": "Bearer token"},
+        json={"average_pace_minutes_per_km": "5:20"},
+    )
+    assert response.status_code == 422
 
 
 def test_grade_run_rejects_missing_pace(monkeypatch):

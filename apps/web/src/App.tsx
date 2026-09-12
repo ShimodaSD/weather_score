@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent, type CSSProperties } from 'react'
-import { fetchRunningScore, type LocationOption } from './api'
+import { fetchAccessToken, fetchRunGrade, type LocationOption, type RunGrade } from './api'
 
 function Icon({ name, className = '' }: { name: 'wind' | 'arrow' | 'pin' | 'run' | 'bike' | 'sun'; className?: string }) {
   const paths = {
@@ -15,7 +15,11 @@ function Icon({ name, className = '' }: { name: 'wind' | 'arrow' | 'pin' | 'run'
 
 export default function App() {
   const [address, setAddress] = useState('')
-  const [result, setResult] = useState<{ score: number; address: string } | null>(null)
+  const [pace, setPace] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [token, setToken] = useState('')
+  const [result, setResult] = useState<{ grade: RunGrade; address: string; pace: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [options, setOptions] = useState<LocationOption[]>([])
@@ -27,21 +31,26 @@ export default function App() {
     if (busy.current) return
     const location = address.trim()
     if (!location) { setError('Enter a town, suburb, or address.'); return }
+    if (!pace.trim()) { setError('Enter your average pace per kilometre.'); return }
     busy.current = true
     setLoading(true)
     setError('')
     setResult(null)
     try {
       const selected = options[Number(selectedOption)]
-      const response = await fetchRunningScore(import.meta.env.VITE_API_BASE_URL || '/api', location, selected)
-      if (typeof response === 'number') {
-        setResult({ score: response, address: selected?.name ?? location })
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+      const accessToken = token || await fetchAccessToken(baseUrl, username, password)
+      if (!token) { setToken(accessToken); setUsername(''); setPassword('') }
+      const response = await fetchRunGrade(baseUrl, location, pace, accessToken, selected)
+      if (!Array.isArray(response)) {
+        setResult({ grade: response, address: selected?.name ?? location, pace: pace.trim() })
         setOptions([])
       } else {
         setOptions(response)
         setSelectedOption('')
       }
     } catch (reason) {
+      if (reason instanceof Error && reason.message.includes('sign-in expired')) setToken('')
       setError(reason instanceof Error ? reason.message : 'Something went wrong. Please try again.')
     } finally {
       busy.current = false
@@ -73,6 +82,10 @@ export default function App() {
             <label htmlFor="address">Your location</label>
             <div className={`location-input ${error ? 'input-error' : ''}`}><Icon name="pin" /><input id="address" name="address" placeholder="Town, suburb, or street address" value={address} onChange={(event) => { setAddress(event.target.value); setOptions([]); setSelectedOption('') }} required maxLength={300} disabled={loading} aria-describedby={error ? 'location-hint search-error' : 'location-hint'} /></div>
             <p id="location-hint" className="field-hint">Add your city or country for a more accurate match.</p>
+            <label className="field-label" htmlFor="pace">Average pace per kilometre</label>
+            <input className="text-field" id="pace" name="pace" type="text" placeholder="5:20" pattern="[0-9]+:[0-5][0-9]" value={pace} onChange={(event) => setPace(event.target.value)} required maxLength={16} disabled={loading} aria-describedby="pace-hint" />
+            <p id="pace-hint" className="field-hint">Minutes:seconds, such as 5:20 for five minutes and twenty seconds.</p>
+            {!token ? <div className="sign-in-fields"><p className="sign-in-title">Sign in to see your grade</p><label htmlFor="username">Username</label><input className="text-field" id="username" name="username" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={loading} /><label className="field-label" htmlFor="password">Password</label><input className="text-field" id="password" name="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={loading} /></div> : <div className="signed-in"><span>Signed in for this visit</span><button type="button" onClick={() => { setToken(''); setResult(null) }} disabled={loading}>Sign out</button></div>}
             {options.length > 0 && <><label className="location-choice-label" htmlFor="location-choice">Which place did you mean?</label><select id="location-choice" value={selectedOption} onChange={(event) => setSelectedOption(event.target.value)} required disabled={loading}><option value="">Select a location</option>{options.map((option, index) => <option key={`${option.latitude},${option.longitude}`} value={index}>{option.name}</option>)}</select></>}
             <fieldset><legend>Your activity</legend><div className="activities"><div className="activity selected"><Icon name="run" /><span>Running</span><span className="selection-dot" aria-label="Selected" /></div><div className="activity unavailable"><Icon name="bike" /><span>Cycling</span><span className="soon">Soon</span></div></div></fieldset>
             <button className="submit" type="submit" disabled={loading}>{loading ? 'Checking conditions…' : options.length ? 'Use this location' : 'Check my conditions'}<Icon name="arrow" /></button>
@@ -85,9 +98,10 @@ export default function App() {
         <div className="score-panel" aria-busy={loading}>
           <div className="score-top"><span className="section-label">YOUR OUTSIDE OUTLOOK</span><span className="status-pill"><span />{loading ? 'Checking' : result ? 'Current conditions' : 'Ready when you are'}</span></div>
           <div className="score-content" role="status" aria-live="polite" aria-atomic="true">
-            <div className={`score-ring ${loading ? 'loading' : ''}`} style={{ '--score': `${result?.score ?? 0}%` } as CSSProperties}><div className="ring-inner"><span className="score-value">{loading ? '···' : result ? Math.round(result.score) : '—'}</span><span className="score-denominator">OUT OF 100</span></div></div>
-            <h2>{loading ? 'Reading the conditions…' : result ? 'Your running score is in.' : 'Your next good day starts here.'}</h2>
-            <p>{loading ? 'A moment to check the weather where you’re headed.' : result ? <>Running conditions for <strong>{result.address}</strong>.<br />The closer to 100, the better the conditions.</> : <>Choose your location to see how the weather<br className="desktop-break" /> stacks up for your next run.</>}</p>
+            <div className={`score-ring ${loading ? 'loading' : ''}`} style={{ '--score': `${result?.grade.score ?? 0}%` } as CSSProperties}><div className="ring-inner"><span className="score-value">{loading ? '···' : result ? Math.round(result.grade.score) : '—'}</span><span className="score-denominator">OUT OF 100</span></div></div>
+            <h2>{loading ? 'Reading the conditions…' : result ? 'Your running grade is in.' : 'Your next good day starts here.'}</h2>
+            <p>{loading ? 'A moment to check the weather where you’re headed.' : result ? <>Running conditions for <strong>{result.address}</strong> at {result.pace}/km.<br />The closer to 100, the better the conditions.</> : <>Choose your location and pace to see how the weather<br className="desktop-break" /> stacks up for your next run.</>}</p>
+            {result && <dl className="grade-details"><div><dt>Running speed</dt><dd>{result.grade.running_speed_kph.toFixed(2)} km/h</dd></div><div><dt>Relative air speed</dt><dd>{result.grade.relative_air_speed_kph.toFixed(2)} km/h</dd></div><div><dt>Wind effort change</dt><dd>{result.grade.wind_metabolic_change_percent > 0 ? '+' : ''}{result.grade.wind_metabolic_change_percent.toFixed(2)}%</dd></div><div><dt>Temperature loss</dt><dd>{result.grade.thermal_performance_loss_percent.toFixed(2)}%</dd></div></dl>}
           </div>
           <div className="score-legend"><span>Less suitable</span><div /><span>More suitable</span></div>
           <div className="contours" aria-hidden="true" />
