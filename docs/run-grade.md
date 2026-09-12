@@ -20,6 +20,12 @@ WeatherAPI's gust speed is treated conservatively as a headwind, and its wet
 bulb temperature is used as the thermal input. Client-supplied weather fields
 are rejected. The endpoint remains bearer-token protected.
 
+If geocoding finds several places, the response contains `options`. Send the
+selected option's coordinates as `latitude` and `longitude` query parameters
+with the same request body to grade that place without geocoding again. Both
+coordinates are required together. The web page signs in through `POST /token`
+and keeps the bearer token only in memory.
+
 ## Equations and evidence
 
 Every arithmetic operation performed by the scoring engine is documented

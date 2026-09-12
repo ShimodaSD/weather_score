@@ -148,9 +148,10 @@ uv run ruff check ../../src . ../../tests
 
 Run frontend commands from `apps/web`: `pnpm install`, `pnpm dev`,
 `pnpm test`, and `pnpm build`. Setup and proxy configuration are documented
-in `apps/web/README.md`. The first page uses `GET /score/run?address=...`;
-the client is in `apps/web/src/api.ts`, with mocked contract checks in
-`apps/web/src/api.test.ts`. Keep all frontend secrets out of `VITE_` variables.
+in `apps/web/README.md`. The first page uses `POST /grade/run?address=...`
+after `POST /token`; the client is in `apps/web/src/api.ts`. The API response
+and frontend client share `tests/contracts/run_grade.json` as a contract check.
+Keep all frontend secrets out of `VITE_` variables.
 Update this guide when shared schemas, tests, or build commands are added.
 
 ## Python documentation convention

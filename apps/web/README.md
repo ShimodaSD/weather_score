@@ -26,12 +26,13 @@ uses `VITE_API_BASE_URL`. Only public configuration belongs in `VITE_` variables
 they are bundled into the browser application. Do not put backend credentials
 or shared access tokens in frontend environment variables.
 
-The page calls `GET /score/run?address=...`, which returns a number from 0 to 100
-or an `{ "error": "..." }` response. Scores are computed by the backend. The page
-starts empty and does not invent weather observations or score breakdowns.
+The page signs in through `POST /token`, then calls bearer-protected
+`POST /grade/run?address=...` with an average pace such as `5:20`. It shows the
+API's score and factor breakdown. Ambiguous addresses return location options;
+the selected option is sent back as `latitude` and `longitude` query parameters.
+The token stays in page memory and is cleared on sign-out or authorization
+failure. No credentials or token are embedded or persisted in the frontend.
 Cycling is marked as coming soon because no cycling endpoint is currently wired.
-Existing backend authentication is unchanged; authorization failures are shown
-as errors. No token is embedded or persisted in the frontend.
 
 ```bash
 pnpm test
@@ -39,6 +40,7 @@ pnpm build
 pnpm preview
 ```
 
-Tests mock HTTP responses; no external weather calls are made. Production hosting
+The grade client test reads `../../tests/contracts/run_grade.json`, which the
+backend response test also checks. No external weather calls are made. Production hosting
 must route `/api` to the backend, or configure a public `VITE_API_BASE_URL` and
 appropriate backend CORS policy. The Vite proxy only runs during development.
