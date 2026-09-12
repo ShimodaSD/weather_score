@@ -6,9 +6,11 @@ from fastapi import FastAPI
 
 try:
     from .database import pool
+    from .routes.connections.database import garmin_pool
     from .routes.router import api_router
 except ImportError:
     from database import pool
+    from routes.connections.database import garmin_pool
     from routes.router import api_router
 
 
@@ -18,6 +20,7 @@ OPENAPI_TAGS = [
     {"name": "Location", "description": "Endpoints for location-based services."},
     {"name": "Score", "description": "Weather-based activity scores."},
     {"name": "Grade", "description": "Research-backed activity grading."},
+    {"name": "Activities", "description": "Historical activity statistics."},
 ]
 
 
@@ -26,7 +29,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Manage resources shared for the lifetime of the application."""
     await pool.open()
     try:
-        yield
+        await garmin_pool.open()
+        try:
+            yield
+        finally:
+            await garmin_pool.close()
     finally:
         await pool.close()
 
