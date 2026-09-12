@@ -1,17 +1,16 @@
-from psycopg.rows import TupleRow
+"""GarminDB activity synchronization routes."""
 
-from .connections.database import garmin_pool
+from fastapi import APIRouter
+
+try:
+    from ..services.garmin import sync_activities
+except ImportError:
+    from services.garmin import sync_activities
+
+router = APIRouter(prefix="/garmin", tags=["Garmin"])
 
 
-async def get_distance() -> list[TupleRow]:
-    """Run a SELECT against Garmin and return its rows.
-
-    Keep ``query`` in application code and pass values through ``params``;
-    never interpolate user input into the SQL string.
-    """
-    async with (
-        garmin_pool.connection() as connection,
-        connection.cursor() as cursor,
-    ):
-        await cursor.execute("SELECT ")
-        return await cursor.fetchall()
+@router.post("/sync", summary="Upload all GarminDB activities to PostgreSQL")
+async def sync_garmin_activities() -> dict[str, int]:
+    """Synchronize the configured GarminDB activities database."""
+    return {"synced": await sync_activities()}

@@ -18,6 +18,7 @@ OPENAPI_TAGS = [
     {"name": "Location", "description": "Endpoints for location-based services."},
     {"name": "Score", "description": "Weather-based activity scores."},
     {"name": "Grade", "description": "Research-backed activity grading."},
+    {"name": "Garmin", "description": "GarminDB activity synchronization."},
 ]
 
 
