@@ -8,9 +8,8 @@ limitations, and change summaries belong in Markdown under `docs/`.
 
 ## Pace-aware run grade
 
-The change adds a bearer-protected `POST /grade/run` endpoint, normalized
-request and response models, an independent scoring module, and automated
-tests.
+The change adds a public `POST /grade/run` endpoint, normalized request and
+response models, an independent scoring module, and automated tests.
 
 Average pace is converted from minutes per kilometre to running speed. The
 signed route-relative wind component is combined with running speed to

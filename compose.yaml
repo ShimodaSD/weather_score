@@ -1,0 +1,29 @@
+services:
+  frontend:
+    image: node:24-alpine
+    working_dir: /app/apps/web
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && API_PROXY_TARGET=http://backend:8002 pnpm dev --host 0.0.0.0 --port 8001"
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/app
+      - frontend_modules:/app/apps/web/node_modules
+      - frontend_store:/app/.pnpm-store
+
+  backend:
+    image: ghcr.io/astral-sh/uv:python3.12-bookworm
+    working_dir: /app/apps/api
+    command: uv run --frozen uvicorn main:app --host 0.0.0.0 --port 8002
+    env_file: /Users/shimoda/repos/grade_activity/weather_score/.env
+    environment:
+      DB_HOST: host.docker.internal
+    ports:
+      - "8002:8002"
+    volumes:
+      - .:/app
+      - backend_venv:/app/.venv
+
+volumes:
+  frontend_modules:
+  frontend_store:
+  backend_venv:
