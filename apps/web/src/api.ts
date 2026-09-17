@@ -174,10 +174,9 @@ export async function endSession(baseUrl: string): Promise<void> {
   if (!response.ok) throw new Error('Could not sign out. Please try again.')
 }
 
-export async function fetchRunGrade(baseUrl: string, address: string, pace: string, token: string, location?: LocationOption): Promise<RunGrade | LocationOption[]> {
+export async function fetchRunGrade(baseUrl: string, address: string, pace: string, location?: LocationOption): Promise<RunGrade | LocationOption[]> {
   if (!address.trim()) throw new Error('Enter a town, suburb, or address.')
   if (!/^\d+:[0-5]\d$/.test(pace.trim()) || /^0+:00$/.test(pace.trim())) throw new Error('Enter a pace like 5:20 per kilometre.')
-  if (!token) throw new Error('Sign in to check your conditions.')
   const query = new URLSearchParams({ address: address.trim() })
   if (location) {
     query.set('latitude', location.latitude)
@@ -187,15 +186,13 @@ export async function fetchRunGrade(baseUrl: string, address: string, pace: stri
   try {
     response = await fetch(`${base(baseUrl)}/grade/run?${query}`, {
       method: 'POST',
-      headers: token === SESSION_AUTH ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ average_pace_minutes_per_km: pace.trim() }),
       signal: AbortSignal.timeout(30_000),
     })
   } catch {
     throw new Error('We couldn’t reach the weather service. Please try again.')
   }
-  if (response.status === 401 || response.status === 403) throw new Error('Your sign-in expired. Please sign in again.')
   if (response.status === 422) throw new Error('Check your address and pace, then try again.')
   if (!response.ok) throw new Error('Conditions are unavailable right now. Please try again shortly.')
   const data: unknown = await response.json().catch(() => null)
