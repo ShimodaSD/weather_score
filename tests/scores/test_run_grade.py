@@ -1,5 +1,4 @@
 import pytest
-
 from weather_score.application.run_grade import calculate_run_grade
 
 
@@ -41,6 +40,14 @@ def test_tailwind_reports_benefit_without_exceeding_one_hundred():
 
     assert result.wind_metabolic_change_percent < 0
     assert result.score == 100
+
+
+def test_tailwind_offsets_part_of_thermal_loss():
+    calm = grade(headwind_kph=0, wet_bulb_globe_temperature_c=30)
+    tailwind = grade(headwind_kph=-8, wet_bulb_globe_temperature_c=30)
+
+    assert tailwind.score > calm.score
+    assert tailwind.score <= 100
 
 
 def test_tailwind_cannot_make_relative_air_speed_negative():

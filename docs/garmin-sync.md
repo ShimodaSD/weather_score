@@ -45,3 +45,5 @@ imports every locally downloaded Garmin data type into `DB_NAME_GARMIN` on the
 same PostgreSQL server as `DB_NAME`. GarminDB creates separate `garmin`,
 `garmin_activities`, and `garmin_monitoring` schemas. The first PostgreSQL import
 processes all local files; later runs import only files from the latest overlap.
+After import, the command copies activity names from SQLite into PostgreSQL to
+work around GarminDB 3.9 passing numeric JSON IDs to its text primary key.

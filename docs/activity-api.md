@@ -17,6 +17,15 @@ All endpoints require the configured bearer token.
   estimates or bounded ranges, the recorded benchmark efforts used, the count
   of usable recent runs, and the longest run. It reads only running distance,
   moving time, start time, and ID; it does not load per-sample records.
+- `POST /activities/{activity_id}/grade` creates or resets an activity-grade
+  row, returns its `processing` state with HTTP 200, and continues the route
+  work as a FastAPI background task. Only running activities are accepted;
+  unknown activity IDs return 404 and other activity types return 422.
+- `GET /activities/grades` returns persisted `processing`, `complete`, and
+  `failed` grade states. The Grades page polls it while work remains.
+- `POST /activities/sync` runs the incremental `garmin-sync` command, then
+  returns the number of newly imported and total activities. The Grades page
+  disables its sync button until the command finishes and refreshes its list.
 
 The summary uses kilometres, seconds, km/h, bpm, metres, and Celsius as named.
 Average pace and speed are derived from moving time and distance because the
@@ -63,3 +72,35 @@ parameter envelope, not a statistical confidence interval. When no benchmark
 exists, no times are returned. Using training activity moving times rather
 than confirmed maximal race efforts is a local adaptation, so the paper's
 reported race-prediction accuracy must not be applied to these estimates.
+
+## Activity route grades
+
+Route grading reads Garmin record distance, timestamp, latitude, and longitude.
+It forms every complete 200 m section, derives section pace from elapsed time
+and distance, and requests WeatherAPI's History API at the section's Garmin
+location and recorded timestamp. The standard History API is hourly, so Garmin
+minutes select the closest available hour; seconds and exact minute-level
+conditions are not available from the provider.
+
+Each section calculates its compass bearing from Garmin coordinates. Its
+historical sustained-wind component is `wind speed × cos(wind direction −
+route bearing)`: positive values are headwinds, negative values are tailwinds,
+and perpendicular wind contributes zero to the pace penalty. Historical gust
+is optional metadata and does not affect the grade.
+
+WeatherAPI's `wetbulb_c` is wet-bulb temperature, not wet-bulb globe
+temperature. Outdoor WBGT is therefore estimated from historical hourly dry-bulb
+temperature, humidity, wind, UV, and cloud using WeatherAPI's documented
+approximation: Stull natural wet bulb, a UV/cloud proxy for globe temperature,
+then `0.7 × wet bulb + 0.2 × globe + 0.1 × dry bulb`. This is an advisory
+estimate rather than a field measurement from a black-globe thermometer. See
+[WeatherAPI's WBGT method](https://blog.weatherapi.com/hyper-local-heat-stress-index-hourly-forecast-api/)
+and [wet-bulb field definition](https://www.weatherapi.com/api-changelog.html).
+
+The signed wind component and estimated WBGT feed the `/grade/run` formula. The
+overall score is the distance-weighted mean and remains within 0–100. History
+calls run with a concurrency limit of five. PostgreSQL stores one row per
+activity in `activity_grades`; regrading replaces its prior score and JSON
+segment breakdown. Grades made with earlier calculation versions are marked
+failed and require regrading. Provider, invalid-route, or missing-GPS
+failures are stored as `failed` so polling clients reach a terminal state.
