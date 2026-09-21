@@ -67,7 +67,7 @@ def calculate_run_grade(
             _OPTIMAL_WBGT_C - wet_bulb_globe_temperature_c
         ) * _COLD_LOSS_PERCENT_PER_C
 
-    score = max(0.0, min(100.0, 100.0 - thermal_loss - max(0.0, wind_change)))
+    score = max(0.0, min(100.0, 100.0 - thermal_loss - wind_change))
 
     return RunGrade(
         score=round(score, 2),

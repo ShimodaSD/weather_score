@@ -4,6 +4,7 @@ import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from scripts import sync_garmindb
 
@@ -48,6 +49,7 @@ def _create_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
         "GARMIN_TEST_CWD": str(tmp_path / "cwd"),
         "GARMIN_TEST_ARGS": str(tmp_path / "args"),
     }
+    environment.pop("DB_NAME_GARMIN", None)
     return environment, target, destination
 
 
@@ -109,3 +111,34 @@ def test_postgres_reuses_weather_connection_settings(monkeypatch) -> None:
         "port": "5432",
         "dbname": "garmin",
     }
+
+
+def test_copies_sqlite_activity_names_to_postgres(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "garmin_activities.db"
+    with sqlite3.connect(source) as database:
+        database.execute(
+            "CREATE TABLE activities (activity_id TEXT PRIMARY KEY, name TEXT)"
+        )
+        database.executemany(
+            "INSERT INTO activities VALUES (?, ?)",
+            [("123", "Morning Run"), ("456", None)],
+        )
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    cursor = connection.cursor.return_value
+    cursor.__enter__.return_value = cursor
+    monkeypatch.setattr(
+        sync_garmindb.psycopg, "connect", MagicMock(return_value=connection)
+    )
+    monkeypatch.setattr(
+        sync_garmindb,
+        "_get_postgres_parameters",
+        MagicMock(return_value={"dbname": "garmin"}),
+    )
+
+    copied = sync_garmindb._sync_postgres_activity_names(source, "garmin")
+
+    assert copied == 1
+    assert cursor.executemany.call_args.args[1] == [
+        ("Morning Run", "123", "Morning Run")
+    ]

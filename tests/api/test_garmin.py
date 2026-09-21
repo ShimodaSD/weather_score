@@ -1,7 +1,10 @@
+import asyncio
 import sqlite3
+from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
-from apps.api.services.garmin import _activity_id, _open_activities
+from apps.api.services.garmin import _activity_id, _open_activities, run_garmindb_sync
 
 
 def test_reads_garmindb_activities_in_batches(tmp_path):
@@ -44,3 +47,19 @@ def test_rejects_garmindb_without_activities_table(tmp_path):
 
     with pytest.raises(sqlite3.Error, match="no such table"):
         _open_activities(database_path)
+
+
+@pytest.mark.asyncio
+async def test_runs_repository_garmin_sync_command(monkeypatch):
+    process = type(
+        "Process",
+        (),
+        {"returncode": 0, "communicate": AsyncMock(return_value=(b"", None))},
+    )()
+    create = AsyncMock(return_value=process)
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create)
+
+    await run_garmindb_sync()
+
+    assert create.await_args.args == ("make", "garmin-sync")
+    assert create.await_args.kwargs["cwd"] == Path(__file__).parents[2]

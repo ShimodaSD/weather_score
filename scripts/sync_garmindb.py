@@ -196,6 +196,28 @@ def _import_postgres(
         _fail_sync("Garmin PostgreSQL activities table is empty")
 
 
+def _sync_postgres_activity_names(target: Path, database_name: str) -> int:
+    """Copy names that GarminDB's PostgreSQL JSON importer cannot update."""
+    try:
+        with sqlite3.connect(f"{target.as_uri()}?mode=ro", uri=True) as source:
+            names = source.execute(
+                "SELECT CAST(activity_id AS TEXT), name FROM activities "
+                "WHERE name IS NOT NULL"
+            ).fetchall()
+        with (
+            psycopg.connect(**_get_postgres_parameters(database_name)) as connection,
+            connection.cursor() as cursor,
+        ):
+            cursor.executemany(
+                "UPDATE garmin_activities.activities SET name = %s "
+                "WHERE activity_id = %s AND name IS DISTINCT FROM %s",
+                [(name, activity_id, name) for activity_id, name in names],
+            )
+    except (sqlite3.Error, psycopg.Error):
+        _fail_sync("cannot copy activity names to Garmin PostgreSQL")
+    return len(names)
+
+
 def _sync_sqlite(working_directory: Path) -> None:
     _run_garmindb(
         working_directory,
@@ -229,6 +251,8 @@ def main() -> None:
     postgres_database = os.environ.get("DB_NAME_GARMIN")
     if postgres_database:
         _import_postgres(config, data_directory.parent, postgres_database)
+        names = _sync_postgres_activity_names(target, postgres_database)
+        print(f"garmin-sync: copied {names} activity names to PostgreSQL")
     print(f"garmin-sync: ready: {target}")
 
 

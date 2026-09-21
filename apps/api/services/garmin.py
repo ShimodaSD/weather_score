@@ -13,6 +13,7 @@ from psycopg_pool import PoolClosed, PoolTimeout
 
 BATCH_SIZE = 1000
 logger = logging.getLogger(__name__)
+_garmindb_sync_lock = asyncio.Lock()
 
 
 def _open_activities(
@@ -46,6 +47,39 @@ def _postgres_row(activity: sqlite3.Row) -> tuple[str, Jsonb]:
     """Convert one SQLite activity into PostgreSQL parameters."""
     data = dict(activity)
     return _activity_id(data), Jsonb(data)
+
+
+async def run_garmindb_sync() -> None:
+    """Run the repository's incremental GarminDB download and import command."""
+    if _garmindb_sync_lock.locked():
+        raise HTTPException(status_code=409, detail="Garmin sync is already running.")
+    async with _garmindb_sync_lock:
+        root = Path(__file__).parents[3]
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "make",
+                "garmin-sync",
+                cwd=root,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+        except OSError as error:
+            raise HTTPException(
+                status_code=503, detail="Garmin sync could not be started."
+            ) from error
+        try:
+            output, _ = await asyncio.wait_for(process.communicate(), timeout=600)
+        except TimeoutError as error:
+            process.kill()
+            await process.communicate()
+            raise HTTPException(
+                status_code=504, detail="Garmin sync timed out."
+            ) from error
+        if process.returncode:
+            logger.error(
+                "GarminDB command failed: %s", output.decode(errors="replace")[-2000:]
+            )
+            raise HTTPException(status_code=502, detail="Garmin sync failed.")
 
 
 async def sync_activities() -> int:

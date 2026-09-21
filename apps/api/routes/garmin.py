@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from psycopg.rows import dict_row
 from weather_score.application.running_predictions import calculate_running_predictions
 
@@ -13,7 +13,14 @@ try:
         ActivityResponse,
         RunningPredictionsResponse,
     )
+    from ..schemas.activity_grade import ActivityGradeResponse
     from ..security import require_access_token
+    from ..services.activity_grades import (
+        fetch_activity_grades,
+        process_activity_grade,
+        queue_activity_grade,
+    )
+    from ..services.garmin import run_garmindb_sync
     from .connections.database import garmin_pool
 except ImportError:
     from routes.connections.database import garmin_pool
@@ -23,7 +30,14 @@ except ImportError:
         ActivityResponse,
         RunningPredictionsResponse,
     )
+    from schemas.activity_grade import ActivityGradeResponse
     from security import require_access_token
+    from services.activity_grades import (
+        fetch_activity_grades,
+        process_activity_grade,
+        queue_activity_grade,
+    )
+    from services.garmin import run_garmindb_sync
 
 router = APIRouter(
     prefix="/activities",
@@ -172,8 +186,7 @@ async def fetch_activity(activity_id: str) -> dict[str, object] | None:
         activity["devices"] = await cursor.fetchall()
 
         await cursor.execute(
-            "SELECT * FROM garmin.device_info WHERE file_id = %s "
-            "ORDER BY timestamp",
+            "SELECT * FROM garmin.device_info WHERE file_id = %s ORDER BY timestamp",
             (activity_id,),
         )
         activity["device_info"] = await cursor.fetchall()
@@ -196,10 +209,36 @@ async def list_activities(
     return await fetch_activities(activity_type, limit, offset)
 
 
-@router.get("/index", response_model=list[ActivityIndexResponse], summary="List activity IDs")
+@router.get(
+    "/index", response_model=list[ActivityIndexResponse], summary="List activity IDs"
+)
 async def list_activity_index() -> list[dict[str, object]]:
     """List all activity IDs and timestamps for dashboard selection."""
     return await fetch_activity_index()
+
+
+@router.get(
+    "/grades",
+    response_model=list[ActivityGradeResponse],
+    summary="List activity grades",
+)
+async def list_activity_grades() -> list[dict[str, object]]:
+    """List completed and in-progress Garmin route grades."""
+    return await fetch_activity_grades()
+
+
+@router.post(
+    "/sync",
+    response_model=dict[str, int],
+    summary="Download new Garmin activities",
+)
+async def sync_garmin_activities() -> dict[str, int]:
+    """Run GarminDB's incremental sync and report newly imported activities."""
+    before = {activity["activity_id"] for activity in await fetch_activity_index()}
+    await run_garmindb_sync()
+    activities = await fetch_activity_index()
+    after = {activity["activity_id"] for activity in activities}
+    return {"new_activities": len(after - before), "total_activities": len(after)}
 
 
 @router.get(
@@ -210,6 +249,27 @@ async def list_activity_index() -> list[dict[str, object]]:
 async def get_running_predictions() -> dict[str, object]:
     """Predict 5, 10, 21, and 42 km moving times from recorded runs."""
     return calculate_running_predictions(await fetch_running_prediction_inputs())
+
+
+@router.post(
+    "/{activity_id}/grade",
+    response_model=ActivityGradeResponse,
+    summary="Grade an activity route",
+)
+async def start_activity_grade(
+    activity_id: str, background_tasks: BackgroundTasks
+) -> dict[str, object]:
+    """Persist a processing state and continue grading after the response."""
+    activity = await fetch_activity_summary(activity_id)
+    if activity is None:
+        raise HTTPException(status_code=404, detail="Activity not found.")
+    if activity["activity_type"] != "running":
+        raise HTTPException(
+            status_code=422, detail="Only running activities can be graded."
+        )
+    grade = await queue_activity_grade(activity_id)
+    background_tasks.add_task(process_activity_grade, activity_id)
+    return grade
 
 
 @router.get(

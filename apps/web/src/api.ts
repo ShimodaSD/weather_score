@@ -58,6 +58,45 @@ export type RunningPredictions = {
   basis: RunningPredictionBasis[]
   predictions: RunningPrediction[]
 }
+export type ActivityGradeSegment = {
+  index: number
+  start_distance_m: number
+  end_distance_m: number
+  distance_m: number
+  elapsed_seconds: number
+  pace_minutes_per_km: number
+  latitude: number
+  longitude: number
+  route_bearing_degrees: number | null
+  recorded_at: string
+  score: number
+  running_speed_kph: number
+  relative_air_speed_kph: number
+  wind_metabolic_change_percent: number
+  thermal_performance_loss_percent: number
+  gust_kph: number | null
+  wind_kph: number
+  wind_degree: number | null
+  headwind_kph: number | null
+  temperature_c: number | null
+  wet_bulb_c: number | null
+  wbgt_c: number | null
+  weather_at: string
+}
+export type ActivityGrade = {
+  activity_id: string
+  status: 'processing' | 'complete' | 'failed'
+  score: number | null
+  segments: ActivityGradeSegment[]
+  error: string | null
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+export type GarminSyncResult = {
+  new_activities: number
+  total_activities: number
+}
 
 const base = (url: string) => url.replace(/\/$/, '')
 export const SESSION_AUTH = 'cookie-session'
@@ -73,14 +112,15 @@ const isActivity = (item: unknown): item is Activity & Record<string, unknown> =
   && typeof item.elapsed_seconds === 'number' && Number.isFinite(item.elapsed_seconds)
   && activityNumbers.every((key) => item[key] === null || typeof item[key] === 'number' && Number.isFinite(item[key]))
 
-async function fetchActivityJson(baseUrl: string, path: string, token: string): Promise<unknown> {
+async function fetchActivityJson(baseUrl: string, path: string, token: string, method = 'GET', timeout = 30_000): Promise<unknown> {
   if (!token) throw new Error('Sign in to see your activities.')
   let response: Response
   try {
     response = await fetch(`${base(baseUrl)}${path}`, {
+      method,
       headers: token === SESSION_AUTH ? {} : { Authorization: `Bearer ${token}` },
       credentials: 'include',
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(timeout),
     })
   } catch {
     throw new Error('We couldn’t reach the activity service. Please try again.')
@@ -89,6 +129,45 @@ async function fetchActivityJson(baseUrl: string, path: string, token: string): 
   if (response.status === 404) throw new Error('Activity not found.')
   if (!response.ok) throw new Error('Activities are unavailable right now. Please try again shortly.')
   return response.json().catch(() => null)
+}
+
+const gradeNumbers = ['start_distance_m', 'end_distance_m', 'distance_m', 'elapsed_seconds',
+  'pace_minutes_per_km', 'latitude', 'longitude', 'score', 'running_speed_kph',
+  'relative_air_speed_kph', 'wind_metabolic_change_percent', 'thermal_performance_loss_percent',
+  'wind_kph']
+const optionalGradeNumbers = ['route_bearing_degrees', 'wind_degree', 'headwind_kph', 'temperature_c', 'wet_bulb_c', 'wbgt_c', 'gust_kph']
+const isActivityGrade = (item: unknown): item is ActivityGrade => isRecord(item)
+  && typeof item.activity_id === 'string' && ['processing', 'complete', 'failed'].includes(String(item.status))
+  && (item.score === null || typeof item.score === 'number' && Number.isFinite(item.score) && item.score >= 0 && item.score <= 100)
+  && (item.error === null || typeof item.error === 'string')
+  && [item.created_at, item.updated_at].every((value) => typeof value === 'string' && Number.isFinite(Date.parse(value)))
+  && (item.completed_at === null || typeof item.completed_at === 'string' && Number.isFinite(Date.parse(item.completed_at)))
+  && Array.isArray(item.segments) && item.segments.every((segment) => isRecord(segment)
+    && Number.isInteger(segment.index) && (segment.index as number) > 0
+    && gradeNumbers.every((key) => typeof segment[key] === 'number' && Number.isFinite(segment[key]))
+    && optionalGradeNumbers.every((key) => segment[key] === undefined || segment[key] === null
+      || typeof segment[key] === 'number' && Number.isFinite(segment[key]))
+    && typeof segment.recorded_at === 'string' && Number.isFinite(Date.parse(segment.recorded_at))
+    && typeof segment.weather_at === 'string' && Number.isFinite(Date.parse(segment.weather_at)))
+
+export async function fetchActivityGrades(baseUrl: string, token: string): Promise<ActivityGrade[]> {
+  const data = await fetchActivityJson(baseUrl, '/activities/grades', token)
+  if (!Array.isArray(data) || !data.every(isActivityGrade)) throw new Error('The service returned an unexpected grade response.')
+  return data
+}
+
+export async function syncGarminActivities(baseUrl: string, token: string): Promise<GarminSyncResult> {
+  const data = await fetchActivityJson(baseUrl, '/activities/sync', token, 'POST', 600_000)
+  if (!isRecord(data) || !Number.isInteger(data.new_activities) || !Number.isInteger(data.total_activities)) {
+    throw new Error('The service returned an unexpected Garmin sync response.')
+  }
+  return data as GarminSyncResult
+}
+
+export async function startActivityGrade(baseUrl: string, id: string, token: string): Promise<ActivityGrade> {
+  const data = await fetchActivityJson(baseUrl, `/activities/${encodeURIComponent(id)}/grade`, token, 'POST')
+  if (!isActivityGrade(data)) throw new Error('The service returned an unexpected grade response.')
+  return data
 }
 
 export async function fetchActivityIndex(baseUrl: string, token: string): Promise<ActivityIndex[]> {

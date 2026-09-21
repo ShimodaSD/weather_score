@@ -4,6 +4,7 @@ import Activities from './Activities'
 
 const ActivityDetailPage = lazy(() => import('./ActivityDetailPage'))
 const RunningPredictionsPage = lazy(() => import('./RunningPredictionsPage'))
+const ActivityGradesPage = lazy(() => import('./ActivityGradesPage'))
 const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
 
 function Icon({ name, className = '' }: { name: 'wind' | 'arrow' | 'pin' | 'run' | 'sun'; className?: string }) {
@@ -50,6 +51,7 @@ export default function App() {
   const activityId = route.startsWith('#activity?') ? new URLSearchParams(route.slice('#activity?'.length)).get('aid') : null
   const isActivities = route === '#activities' || activityId !== null
   const isPredictions = route === '#predictions'
+  const isGrades = route === '#grades'
 
   function openSignIn() {
     setSignInError('')
@@ -120,7 +122,7 @@ export default function App() {
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="header">
       <a className="brand" href="#check" aria-label="Wind Score home"><span className="brand-mark"><Icon name="wind" /></span>windscore<span className="brand-dot">.</span></a>
-      <nav aria-label="Main navigation"><a className={!isActivities && !isPredictions ? 'nav-active' : ''} href="#check" aria-current={!isActivities && !isPredictions ? 'page' : undefined}>Conditions</a><a className={isActivities ? 'nav-active' : ''} href="#activities" aria-current={isActivities ? 'page' : undefined}>Activities</a><a className={isPredictions ? 'nav-active' : ''} href="#predictions" aria-current={isPredictions ? 'page' : undefined}>Predictions</a><a href="#how-it-works">How it works <span aria-hidden="true">↗</span></a></nav>
+      <nav aria-label="Main navigation"><a className={!isActivities && !isPredictions && !isGrades ? 'nav-active' : ''} href="#check" aria-current={!isActivities && !isPredictions && !isGrades ? 'page' : undefined}>Conditions</a><a className={isActivities ? 'nav-active' : ''} href="#activities" aria-current={isActivities ? 'page' : undefined}>Activities</a><a className={isGrades ? 'nav-active' : ''} href="#grades" aria-current={isGrades ? 'page' : undefined}>Grades</a><a className={isPredictions ? 'nav-active' : ''} href="#predictions" aria-current={isPredictions ? 'page' : undefined}>Predictions</a><a href="#how-it-works">How it works <span aria-hidden="true">↗</span></a></nav>
       {signOutError && <span className="error-message" role="alert">{signOutError}</span>}{token ? <button className="header-auth" type="button" onClick={() => { void signOut() }} disabled={loading}>Sign out</button> : !isActivities && <button className="header-auth" type="button" onClick={openSignIn}>Sign in</button>}
     </header>
     <dialog className="sign-in-dialog" ref={signInDialog} aria-labelledby="sign-in-title">
@@ -129,7 +131,7 @@ export default function App() {
       <form onSubmit={signIn}><label htmlFor="username">Username</label><input className="text-field" id="username" name="username" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={signingIn} /><label className="field-label" htmlFor="password">Password</label><input className="text-field" id="password" name="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={signingIn} /><button className="submit" type="submit" disabled={signingIn}>{signingIn ? 'Signing in…' : 'Sign in'}</button>{signInError && <p className="error-message" role="alert">{signInError}</p>}</form>
     </dialog>
 
-    {isPredictions ? <Suspense fallback={<main id="main" className="predictions-page"><p className="dashboard-state" role="status">Opening predictions…</p></main>}><RunningPredictionsPage token={token} onTokenChange={setToken} onSignIn={openSignIn} /></Suspense> : isActivities ? activityId && token ? <Suspense fallback={<main id="main" className="full-activity-page"><p className="dashboard-state" role="status">Opening activity details…</p></main>}><ActivityDetailPage id={activityId} token={token} onTokenChange={setToken} /></Suspense> : <Activities key={token} token={token} onTokenChange={setToken} /> : <main id="main">
+    {isGrades ? <Suspense fallback={<main id="main" className="grades-page"><p className="dashboard-state" role="status">Opening activity grades…</p></main>}><ActivityGradesPage token={token} onTokenChange={setToken} onSignIn={openSignIn} /></Suspense> : isPredictions ? <Suspense fallback={<main id="main" className="predictions-page"><p className="dashboard-state" role="status">Opening predictions…</p></main>}><RunningPredictionsPage token={token} onTokenChange={setToken} onSignIn={openSignIn} /></Suspense> : isActivities ? activityId && token ? <Suspense fallback={<main id="main" className="full-activity-page"><p className="dashboard-state" role="status">Opening activity details…</p></main>}><ActivityDetailPage id={activityId} token={token} onTokenChange={setToken} /></Suspense> : <Activities key={token} token={token} onTokenChange={setToken} /> : <main id="main">
       <section className="intro" aria-labelledby="page-title">
         <div className="eyebrow"><span className="tiny-line" /> A LITTLE WEATHER WISDOM. A BETTER DAY OUT.</div>
         <h1 id="page-title">Find your <em>outside.</em></h1>

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityIndex, fetchActivitySummary, fetchRunGrade, fetchRunningPredictions, hasSession } from './api.ts'
+import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchRunGrade, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities } from './api.ts'
 
 const grade = JSON.parse(readFileSync(new URL('../../../tests/contracts/run_grade.json', import.meta.url), 'utf8'))
 
@@ -105,4 +105,28 @@ test('running predictions use the protected summary endpoint', async (t) => {
   assert.equal(new Headers(mock.mock.calls[0].arguments[1]?.headers).get('Authorization'), 'Bearer token')
   mock.mock.mockImplementation(async () => new Response(JSON.stringify({ ...data, predictions: [{}] })))
   await assert.rejects(fetchRunningPredictions('/api', 'token'), /unexpected prediction response/)
+})
+
+test('activity grades list and start through protected endpoints', async (t) => {
+  const data = { activity_id: '123', status: 'processing', score: null, segments: [], error: null,
+    created_at: '2026-09-17T00:00:00Z', updated_at: '2026-09-17T00:00:00Z', completed_at: null }
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify([data])))
+  assert.deepEqual(await fetchActivityGrades('/api', 'token'), [data])
+  assert.equal(mock.mock.calls[0].arguments[0], '/api/activities/grades')
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify(data)))
+  assert.deepEqual(await startActivityGrade('/api', '123', 'token'), data)
+  assert.equal(mock.mock.calls[1].arguments[0], '/api/activities/123/grade')
+  assert.equal(mock.mock.calls[1].arguments[1]?.method, 'POST')
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify({ ...data, status: 'unknown' })))
+  await assert.rejects(fetchActivityGrades('/api', 'token'), /unexpected grade response/)
+})
+
+test('Garmin sync uses the protected incremental sync endpoint', async (t) => {
+  const result = { new_activities: 1, total_activities: 42 }
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(result)))
+
+  assert.deepEqual(await syncGarminActivities('/api', 'token'), result)
+  assert.equal(mock.mock.calls[0].arguments[0], '/api/activities/sync')
+  assert.equal(mock.mock.calls[0].arguments[1]?.method, 'POST')
+  assert.equal(new Headers(mock.mock.calls[0].arguments[1]?.headers).get('Authorization'), 'Bearer token')
 })
