@@ -18,12 +18,13 @@ def _database_url(database_name: str) -> str:
     port = os.environ.get("DB_PORT")
     if not host or not port:
         raise ValueError("Invalid database configuration. Missing host or port.")
-    if database_name == "weatherapi":
-        name = os.environ.get("DB_NAME_WEATHERAPI")
-    elif database_name == "garmin":
-        name = os.environ.get("DB_NAME_GARMIN")
-    else:
+    if database_name not in {"weatherapi", "garmin"}:
         raise ValueError("Invalid database name. Use 'weatherapi' or 'garmin'.")
+    name = os.environ.get(f"DB_NAME_{database_name.upper()}") or os.environ.get(
+        "DB_NAME"
+    )
+    if not name:
+        raise ValueError("Invalid database configuration. Missing database name.")
 
     return f"postgresql://postgres:{quote_plus(password)}@{host}:{port}/{name}"
 

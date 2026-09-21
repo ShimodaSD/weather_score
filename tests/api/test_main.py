@@ -175,7 +175,9 @@ def test_score_run_by_type_rejects_unknown_type():
     assert response.status_code == 422
 
 
-def test_grade_run_requires_bearer_token():
+def test_grade_run_is_public(monkeypatch):
+    monkeypatch.setattr(scoring, "geocode_address", AsyncMock(return_value=None))
+
     response = client.post(
         "/grade/run",
         params={"address": "Brisbane"},
@@ -184,7 +186,7 @@ def test_grade_run_requires_bearer_token():
         },
     )
 
-    assert response.status_code == 401
+    assert response.status_code == 200
 
 
 def test_grade_run_returns_factor_breakdown(monkeypatch):
@@ -391,7 +393,7 @@ def test_browser_session_expires_after_one_day_and_logout_clears_it(monkeypatch)
     browser.post("/token", data={"username": "runner", "password": "secret"})
     now += auth.SESSION_SECONDS
     assert browser.get("/session").status_code == 401
-    assert browser.post("/grade/run").status_code == 401
+    assert browser.get("/activities/index").status_code == 401
 
 
 def test_login_rejects_incorrect_credentials(monkeypatch):

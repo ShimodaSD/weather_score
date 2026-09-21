@@ -26,10 +26,11 @@ uses `VITE_API_BASE_URL`. Only public configuration belongs in `VITE_` variables
 they are bundled into the browser application. Do not put backend credentials
 or shared access tokens in frontend environment variables.
 
-The header sign-in dialog uses `POST /token`. The Conditions page then calls bearer-protected
-`POST /grade/run?address=...` with an average pace such as `5:20`. It shows the
+The Conditions page calls public `POST /grade/run?address=...` with an average
+pace such as `5:20`. It shows the
 API's score and factor breakdown. Ambiguous addresses return location options;
 the selected option is sent back as `latitude` and `longitude` query parameters.
+The header sign-in dialog uses `POST /token` for activities and predictions.
 Sign-in sets a signed, HttpOnly browser cookie that expires after one day. The
 web app restores the session on reload through `GET /session`, sends the cookie
 with protected requests, and clears it through `POST /logout` on sign-out. The

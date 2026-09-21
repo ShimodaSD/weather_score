@@ -92,14 +92,13 @@ export default function App() {
     const location = address.trim()
     if (!location) { setError('Enter a town, suburb, or address.'); return }
     if (!pace.trim()) { setError('Enter your average pace per kilometre.'); return }
-    if (!token) { setError('Sign in to check your conditions.'); openSignIn(); return }
     busy.current = true
     setLoading(true)
     setError('')
     setResult(null)
     try {
       const selected = options[Number(selectedOption)]
-      const response = await fetchRunGrade(apiBase, location, pace, token, selected)
+      const response = await fetchRunGrade(apiBase, location, pace, selected)
       if (!Array.isArray(response)) {
         setResult({ grade: response, address: selected?.name ?? location, pace: pace.trim() })
         setOptions([])
@@ -108,7 +107,6 @@ export default function App() {
         setSelectedOption('')
       }
     } catch (reason) {
-      if (reason instanceof Error && reason.message.includes('sign-in expired')) setToken('')
       setError(reason instanceof Error ? reason.message : 'Something went wrong. Please try again.')
     } finally {
       busy.current = false
@@ -127,7 +125,7 @@ export default function App() {
     </header>
     <dialog className="sign-in-dialog" ref={signInDialog} aria-labelledby="sign-in-title">
       <div className="dialog-heading"><div><span className="eyebrow">WIND SCORE</span><h2 id="sign-in-title">Sign in</h2></div><button type="button" className="dialog-close" aria-label="Close sign-in" onClick={() => signInDialog.current?.close()}>×</button></div>
-      <p>Use your account to check conditions and view activities.</p>
+      <p>Use your account to view activities and predictions.</p>
       <form onSubmit={signIn}><label htmlFor="username">Username</label><input className="text-field" id="username" name="username" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={signingIn} /><label className="field-label" htmlFor="password">Password</label><input className="text-field" id="password" name="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={signingIn} /><button className="submit" type="submit" disabled={signingIn}>{signingIn ? 'Signing in…' : 'Sign in'}</button>{signInError && <p className="error-message" role="alert">{signInError}</p>}</form>
     </dialog>
 
