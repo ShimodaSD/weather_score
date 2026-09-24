@@ -6,9 +6,37 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 from scripts import sync_garmindb
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "sync_garmindb.py"
+
+
+def test_generates_private_config_from_environment(tmp_path, monkeypatch):
+    source = tmp_path / "GarminConnectConfig.json"
+    template = {
+        "db": {"type": "sqlite"},
+        "credentials": {"user": "runner", "password_file": "/outside/password"},
+        "directories": {"base_dir": "/outside/data"},
+    }
+    source.write_text(json.dumps(template))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    monkeypatch.setenv("GARMINDB_CONFIG", str(source))
+    monkeypatch.delenv("SECRET_GARMIN", raising=False)
+    target = tmp_path / "HealthData" / "DBs" / "garmin_activities.db"
+    with pytest.raises(SystemExit, match="set SECRET_GARMIN"):
+        sync_garmindb._get_garmin_config(target)
+    monkeypatch.setenv("SECRET_GARMIN", "test-password")
+    directory, config = sync_garmindb._get_garmin_config(target)
+    generated = tmp_path / "home/.GarminDb/GarminConnectConfig.json"
+    assert directory == target.parent.parent
+    assert json.loads(generated.read_text()) == config
+    assert config["credentials"] == {
+        "user": "runner", "password": "test-password",
+        "password_file": None, "secure_password": False,
+    }
+    assert generated.stat().st_mode & 0o777 == 0o600
+    assert json.loads(source.read_text()) == template
 
 
 def _create_database(path: Path, activities: bool = False) -> None:
@@ -50,6 +78,7 @@ def _create_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
         "GARMIN_TEST_ARGS": str(tmp_path / "args"),
     }
     environment.pop("DB_NAME_GARMIN", None)
+    environment.pop("GARMINDB_CONFIG", None)
     return environment, target, destination
 
 
