@@ -40,16 +40,38 @@ def _validate_database(path: Path, required_table: str | None = None) -> bool:
 
 def _get_garmin_config(target: Path) -> tuple[Path, dict[str, object]]:
     config_path = Path.home() / ".GarminDb" / "GarminConnectConfig.json"
+    source_path = Path(os.environ.get("GARMINDB_CONFIG", str(config_path)))
     try:
-        config = json.loads(config_path.read_text())
+        config = json.loads(source_path.read_text())
     except (OSError, json.JSONDecodeError) as error:
-        _fail_sync(f"cannot read GarminDB config at {config_path}: {error}")
+        _fail_sync(f"cannot read GarminDB config at {source_path}: {error}")
 
     if (
         not isinstance(config, dict)
         or config.get("db", {}).get("type", "sqlite") != "sqlite"
     ):
         _fail_sync("GarminDB config must use SQLite")
+
+    if os.environ.get("GARMINDB_CONFIG"):
+        password = os.environ.get("SECRET_GARMIN")
+        if not password:
+            _fail_sync("set SECRET_GARMIN in .env")
+        credentials = config.get("credentials")
+        if not isinstance(credentials, dict) or not credentials.get("user"):
+            _fail_sync("set credentials.user in GarminConnectConfig.json")
+        credentials.update(
+            password=password, secure_password=False, password_file=None
+        )
+        config["directories"] = {
+            "relative_to_home": False,
+            "base_dir": str(target.parent.parent),
+        }
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(
+            config_path, "w", opener=lambda path, flags: os.open(path, flags, 0o600)
+        ) as output:
+            config_path.chmod(0o600)
+            json.dump(config, output, indent=2)
 
     directories = config.get("directories", {})
     configured = Path(directories.get("base_dir", "HealthData")).expanduser()

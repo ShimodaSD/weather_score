@@ -188,3 +188,7 @@ sketch
 
 .env
 .DS_Store
+workspace/docker/
+workspace/garmin/
+GarminConnectConfig.json
+workspace/postgres/
