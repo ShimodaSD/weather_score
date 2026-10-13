@@ -13,7 +13,7 @@ services:
   backend:
     image: ghcr.io/astral-sh/uv:python3.12-bookworm
     working_dir: /app/apps/api
-    command: uv run --frozen uvicorn main:app --host 0.0.0.0 --port 8002
+    command: uv run --frozen uvicorn main:app --host 0.0.0.0 --port 8002 --reload --reload-dir /app/apps/api --reload-dir /app/src
     env_file: /Users/shimoda/repos/grade_activity/weather_score/.env
     environment:
       DB_HOST: host.docker.internal
@@ -22,6 +22,12 @@ services:
     volumes:
       - .:/app
       - backend_venv:/app/.venv
+      - type: bind
+        source: /Users/shimoda/.GarminDb/GarminConnectConfig.json
+        target: /root/.GarminDb/GarminConnectConfig.json
+        read_only: true
+        bind:
+          create_host_path: false
 
 volumes:
   frontend_modules:

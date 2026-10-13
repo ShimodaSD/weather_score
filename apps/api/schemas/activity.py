@@ -1,6 +1,6 @@
 """Garmin activity API schemas."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -13,6 +13,31 @@ class ActivityIndexResponse(BaseModel):
     started_at: datetime
     activity_type: str
     name: str | None = None
+
+
+class ActivityTssResponse(BaseModel):
+    """Training load and the inputs used for an activity calculation."""
+
+    activity_id: str
+    tss: float = Field(ge=0, allow_inf_nan=False)
+    method: Literal["cycling_power", "running_pace_estimate", "heart_rate_estimate"]
+    duration_seconds: float = Field(gt=0, allow_inf_nan=False)
+    intensity_factor: float = Field(ge=0, allow_inf_nan=False)
+    intensity: float = Field(ge=0, allow_inf_nan=False)
+    threshold: float = Field(gt=0, allow_inf_nan=False)
+    intensity_unit: Literal["W", "m/s", "bpm"]
+    warnings: list[str]
+
+
+class WeeklyTssResponse(BaseModel):
+    """Monday-to-Sunday load total and coverage of recorded activities."""
+
+    week_start: date
+    week_end: date
+    tss: float | None = Field(ge=0, allow_inf_nan=False)
+    threshold_heart_rate_bpm: int = Field(ge=30, le=250)
+    scored_activity_count: int = Field(ge=0)
+    excluded_activity_count: int = Field(ge=0)
 
 
 class ActivityResponse(BaseModel):

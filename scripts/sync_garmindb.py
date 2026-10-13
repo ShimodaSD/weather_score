@@ -11,6 +11,7 @@ from typing import Never
 
 import psycopg
 from psycopg import sql
+from weather_score.application.training_stress import calculate_activity_tss
 
 
 def _fail_sync(message: str) -> Never:
@@ -218,6 +219,64 @@ def _sync_postgres_activity_names(target: Path, database_name: str) -> int:
     return len(names)
 
 
+def _fetch_tss_threshold() -> int:
+    """Read the saved profile threshold, defaulting for an unconfigured profile."""
+    database_name = os.environ.get("DB_NAME")
+    if not database_name:
+        _fail_sync("set DB_NAME to read the TSS profile")
+    with psycopg.connect(**_get_postgres_parameters(database_name)) as connection:
+        if connection.execute("SELECT to_regclass('athlete_profile')").fetchone()[0]:
+            profile = connection.execute(
+                "SELECT threshold_heart_rate_bpm FROM athlete_profile WHERE id = 1"
+            ).fetchone()
+            if profile:
+                return profile[0]
+    return 157
+
+
+def _sync_postgres_activity_tss(database_name: str) -> tuple[int, int]:
+    """Backfill all recorded activities with the current profile's HR estimate."""
+    try:
+        threshold = _fetch_tss_threshold()
+        if not 30 <= threshold <= 250:
+            _fail_sync("profile threshold must be between 30 and 250 bpm")
+        with (
+            psycopg.connect(**_get_postgres_parameters(database_name)) as connection,
+            connection.cursor() as cursor,
+        ):
+            cursor.execute(
+                "ALTER TABLE garmin_activities.activities "
+                "ADD COLUMN IF NOT EXISTS tss double precision"
+            )
+            cursor.execute(
+                "SELECT activity_id, sport, avg_hr, "
+                "EXTRACT(EPOCH FROM elapsed_time)::double precision "
+                "FROM garmin_activities.activities"
+            )
+            updates = []
+            scored = 0
+            for activity_id, sport, average_hr, elapsed_seconds in cursor.fetchall():
+                try:
+                    tss = calculate_activity_tss(
+                        sport,
+                        threshold_heart_rate_bpm=threshold,
+                        average_heart_rate_bpm=average_hr,
+                        elapsed_seconds=elapsed_seconds,
+                    )["tss"]
+                    scored += 1
+                except (TypeError, ValueError):
+                    tss = None
+                updates.append((tss, activity_id, tss))
+            cursor.executemany(
+                "UPDATE garmin_activities.activities SET tss = %s "
+                "WHERE activity_id = %s AND tss IS DISTINCT FROM %s",
+                updates,
+            )
+    except psycopg.Error:
+        _fail_sync("cannot calculate activity TSS in Garmin PostgreSQL")
+    return scored, len(updates) - scored
+
+
 def _sync_sqlite(working_directory: Path) -> None:
     _run_garmindb(
         working_directory,
@@ -253,6 +312,8 @@ def main() -> None:
         _import_postgres(config, data_directory.parent, postgres_database)
         names = _sync_postgres_activity_names(target, postgres_database)
         print(f"garmin-sync: copied {names} activity names to PostgreSQL")
+        scored, excluded = _sync_postgres_activity_tss(postgres_database)
+        print(f"garmin-sync: calculated TSS for {scored} activities; {excluded} unavailable")
     print(f"garmin-sync: ready: {target}")
 
 

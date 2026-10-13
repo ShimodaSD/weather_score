@@ -2,10 +2,82 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchRunGrade, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities } from './api.ts'
+import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchActivityTss, fetchWeeklyTss, fetchProfile, saveProfile, fetchRunGrade, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities } from './api.ts'
 
 
 const grade = JSON.parse(readFileSync(new URL('../../../tests/contracts/run_grade.json', import.meta.url), 'utf8'))
+
+test('weekly TSS uses local calendar date and validates partial, empty and failed totals', async (t) => {
+  const result = { week_start: '2026-09-21', week_end: '2026-09-27', tss: 250.5, threshold_heart_rate_bpm: 157, scored_activity_count: 3, excluded_activity_count: 1 }
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(result)))
+  assert.deepEqual(await fetchWeeklyTss('/api/', 'token', new Date(2026, 8, 24, 0, 1)), result)
+  assert.equal(mock.mock.calls[0].arguments[0], '/api/activities/tss/weekly?week_of=2026-09-24')
+  assert.equal(new Headers(mock.mock.calls[0].arguments[1]?.headers).get('Authorization'), 'Bearer token')
+  for (const tss of [0, null]) {
+    const empty = { ...result, tss, scored_activity_count: 0 }
+    mock.mock.mockImplementation(async () => new Response(JSON.stringify(empty)))
+    assert.deepEqual(await fetchWeeklyTss('/api', SESSION_AUTH), empty)
+  }
+  for (const invalid of [{}, { ...result, tss: -1 }, { ...result, scored_activity_count: 1.5 }, { ...result, week_start: 'invalid' }, { ...result, threshold_heart_rate_bpm: 0 }]) {
+    mock.mock.mockImplementation(async () => new Response(JSON.stringify(invalid)))
+    await assert.rejects(fetchWeeklyTss('/api', 'token'), /unexpected weekly TSS/)
+  }
+  mock.mock.mockImplementation(async () => new Response('', { status: 503 }))
+  await assert.rejects(fetchWeeklyTss('/api', 'token'), /unavailable/)
+})
+
+test('profile client loads defaults and saves name and threshold with authentication', async (t) => {
+  const initial = { name: null, threshold_heart_rate_bpm: 157 }
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(initial)))
+  assert.deepEqual(await fetchProfile('/api', 'token'), initial)
+  assert.equal(mock.mock.calls[0].arguments[0], '/api/profile')
+  const updated = { name: 'Runner', threshold_heart_rate_bpm: 170 }
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify(updated)))
+  assert.deepEqual(await saveProfile('/api', SESSION_AUTH, { ...updated, name: ' Runner ' }), updated)
+  const options = mock.mock.calls.at(-1)?.arguments[1]
+  assert.equal(options?.method, 'PUT')
+  assert.equal(options?.credentials, 'include')
+  assert.equal(new Headers(options?.headers).get('Content-Type'), 'application/json')
+  assert.deepEqual(JSON.parse(String(options?.body)), updated)
+  await assert.rejects(saveProfile('/api', 'token', { ...updated, name: ' ' }), /Enter your name/)
+  await assert.rejects(saveProfile('/api', 'token', { ...updated, threshold_heart_rate_bpm: 251 }), /whole-number threshold/)
+  mock.mock.mockImplementation(async () => new Response('{"name":null,"threshold_heart_rate_bpm":0}'))
+  await assert.rejects(fetchProfile('/api', 'token'), /unexpected profile/)
+  mock.mock.mockImplementation(async () => new Response('', { status: 500 }))
+  await assert.rejects(saveProfile('/api', 'token', updated), /unavailable/)
+})
+
+test('TSS client checks the shared contract and sends thresholds with authentication', async (t) => {
+  const result = JSON.parse(readFileSync(new URL('../../../tests/contracts/activity_tss.json', import.meta.url), 'utf8'))
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(result)))
+  const inputs = { ftp_watts: 250, normalized_power_watts: 250, duration_seconds: 7200 }
+  assert.deepEqual(await fetchActivityTss('/api/', '123', 'token', inputs), result)
+  assert.equal(mock.mock.calls[0].arguments[0], '/api/activities/123/tss?ftp_watts=250&normalized_power_watts=250&duration_seconds=7200')
+  assert.equal(new Headers(mock.mock.calls[0].arguments[1]?.headers).get('Authorization'), 'Bearer token')
+  assert.equal(mock.mock.calls[0].arguments[1]?.credentials, 'include')
+  const run = { ...result, method: 'running_pace_estimate', intensity_unit: 'm/s' }
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify(run)))
+  assert.deepEqual(await fetchActivityTss('/api', '123', SESSION_AUTH, { threshold_pace_seconds_per_km: 300 }), run)
+  assert.equal(mock.mock.calls.at(-1)?.arguments[0], '/api/activities/123/tss?threshold_pace_seconds_per_km=300')
+  assert.equal(new Headers(mock.mock.calls.at(-1)?.arguments[1]?.headers).has('Authorization'), false)
+  const heartRate = { ...result, method: 'heart_rate_estimate', intensity_unit: 'bpm', threshold: 157 }
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify(heartRate)))
+  assert.deepEqual(await fetchActivityTss('/api', '123', 'token', { threshold_heart_rate_bpm: 157 }), heartRate)
+  assert.equal(mock.mock.calls.at(-1)?.arguments[0], '/api/activities/123/tss?threshold_heart_rate_bpm=157')
+  assert.deepEqual(await fetchActivityTss('/api', '123', 'token'), heartRate)
+  assert.equal(mock.mock.calls.at(-1)?.arguments[0], '/api/activities/123/tss')
+  for (const invalid of [{}, { ...result, tss: -1 }, { ...result, threshold: 0 },
+    { ...result, duration_seconds: 0 }, { ...result, warnings: null },
+    { ...result, intensity_unit: 'm/s' }, { ...result, activity_id: 'other' }]) {
+    mock.mock.mockImplementation(async () => new Response(JSON.stringify(invalid)))
+    await assert.rejects(fetchActivityTss('/api', '123', 'token', inputs), /unexpected TSS/)
+  }
+  mock.mock.mockImplementation(async () => new Response('{"detail":"Recorded distance is required."}', { status: 422 }))
+  await assert.rejects(fetchActivityTss('/api', '123', 'token', inputs), /Recorded distance is required/)
+  mock.mock.mockImplementation(async () => new Response('', { status: 401 }))
+  await assert.rejects(fetchActivityTss('/api', '123', 'token', inputs), /sign-in expired/)
+  await assert.rejects(fetchActivityTss('/api', '123', 'token', { threshold_pace_seconds_per_km: NaN }), /valid positive/)
+})
 
 test('sign-in requests a browser session cookie', async (t) => {
   const mock = t.mock.method(globalThis, 'fetch', async () => new Response('{"access_token":"token","token_type":"bearer"}'))

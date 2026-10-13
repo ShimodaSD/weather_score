@@ -57,3 +57,18 @@ The grade client test reads `../../tests/contracts/run_grade.json`, which the
 backend response test also checks. No external weather calls are made. Production hosting
 must route `/api` to the backend, or configure a public `VITE_API_BASE_URL` and
 appropriate backend CORS policy. The Vite proxy only runs during development.
+
+Activities also displays saved route grades (polling while processing) and the
+same **Get new data** action as Grades. Successful sync refreshes the list,
+selected summary, grades, and weekly TSS without resetting the selection.
+
+With a development server running and Playwright/Chromium available, run the
+mocked browser regression check (no Garmin downloads or weather requests):
+
+```bash
+WEB_URL=http://localhost:8001 node tests/activities.browser.cjs
+```
+
+Set `PLAYWRIGHT_MODULE` to an existing Playwright module path if it is installed
+outside this app. This checks syncing/disabled feedback, refresh, failure,
+grade polling/retry, and mobile/desktop overflow.
