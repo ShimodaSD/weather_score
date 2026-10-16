@@ -158,7 +158,7 @@ Coverage is in `tests/scores/test_training_stress.py`,
 ## Configuration and security
 
 - For local development and verification, load environment variables from
-  `/Users/shimoda/repos/grade_activity/weather_score/.env`; reference the file
+  the repository-root `.env`; reference the file
   in commands without copying, displaying, or committing its contents.
 - Never commit `.env` files, API keys, passwords, access tokens, or database
   credentials.

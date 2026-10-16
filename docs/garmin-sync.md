@@ -1,5 +1,38 @@
 # GarminDB sync
 
+## Docker Compose
+
+Compose uses the repository-root `.env`, its own PostgreSQL service, and Garmin
+files inside this project. It does not mount your host home directory.
+
+Place your complete `GarminConnectConfig.json` in the project root, with your
+Garmin username in `credentials.user` and SQLite as the database type. Set
+`SECRET_GARMIN` in `.env` to your Garmin password. Each sync generates
+`workspace/garmin/.GarminDb/GarminConnectConfig.json` from that file, injecting
+the password and project data path. The generated file has mode `0600`;
+both config files and `.env` are ignored by Git. Existing password-file and
+secure-password settings are replaced by the `.env` password. Existing session
+files can also be placed in `workspace/garmin/.GarminDb/`.
+
+Place any existing downloaded Garmin data and SQLite databases in
+`workspace/garmin/HealthData/` (the activities database belongs at
+`HealthData/DBs/garmin_activities.db`). If starting fresh, GarminDB downloads data
+using the start dates in your configuration. These directories are ignored by Git.
+
+```bash
+docker compose up -d
+docker compose exec -w /app backend make garmin-sync
+```
+
+Compose supplies the container database path and mounts the project Garmin
+configuration at `/root/.GarminDb`. It disables the optional bootstrap path;
+reuse existing data by placing it in the project directory above. Subsequent
+refreshes use the same command or the dashboard's **Get new data** button.
+The first sync populates the new PostgreSQL database before activity pages can
+load. Merely starting Compose does not download Garmin data.
+
+## Running without Docker
+
 The project keeps Garmin credentials and session files in GarminDB's standard
 `~/.GarminDb` directory. Install no separate GarminDB checkout or duplicate
 configuration.

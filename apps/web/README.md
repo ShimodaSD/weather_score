@@ -12,7 +12,7 @@ load its configuration without copying secrets into the frontend:
 
 ```bash
 cd ../api
-uv run --env-file /Users/shimoda/repos/grade_activity/weather_score/.env uvicorn main:app --reload
+uv run --env-file ../../.env uvicorn main:app --reload
 ```
 
 Development defaults are checked in as `.env.development`: `pnpm dev` forwards
