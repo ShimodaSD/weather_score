@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import uvicorn
+lazy import uvicorn
 from fastapi import FastAPI
 
 try:
