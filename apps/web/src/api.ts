@@ -27,6 +27,29 @@ export type Activity = {
   anaerobic_training_effect: number | null
 }
 export type ActivityIndex = Pick<Activity, 'activity_id' | 'activity_type' | 'name' | 'started_at'>
+export type ActivityTss = {
+  activity_id: string
+  tss: number
+  method: 'cycling_power' | 'running_pace_estimate' | 'heart_rate_estimate'
+  duration_seconds: number
+  intensity_factor: number
+  intensity: number
+  threshold: number
+  intensity_unit: 'W' | 'm/s' | 'bpm'
+  warnings: string[]
+}
+export type TssInputs = { threshold_heart_rate_bpm: number } | { threshold_pace_seconds_per_km: number } | {
+  ftp_watts: number; normalized_power_watts: number; duration_seconds: number
+}
+export type AthleteProfile = { name: string | null; threshold_heart_rate_bpm: number }
+export type WeeklyTss = {
+  week_start: string
+  week_end: string
+  tss: number | null
+  threshold_heart_rate_bpm: number
+  scored_activity_count: number
+  excluded_activity_count: number
+}
 export type ActivityDetail = Activity & {
   activity: Record<string, unknown>
   laps: Record<string, unknown>[]
@@ -112,13 +135,14 @@ const isActivity = (item: unknown): item is Activity & Record<string, unknown> =
   && typeof item.elapsed_seconds === 'number' && Number.isFinite(item.elapsed_seconds)
   && activityNumbers.every((key) => item[key] === null || typeof item[key] === 'number' && Number.isFinite(item[key]))
 
-async function fetchActivityJson(baseUrl: string, path: string, token: string, method = 'GET', timeout = 30_000): Promise<unknown> {
+async function fetchActivityJson(baseUrl: string, path: string, token: string, method = 'GET', timeout = 30_000, body?: unknown): Promise<unknown> {
   if (!token) throw new Error('Sign in to see your activities.')
   let response: Response
   try {
     response = await fetch(`${base(baseUrl)}${path}`, {
       method,
-      headers: token === SESSION_AUTH ? {} : { Authorization: `Bearer ${token}` },
+      headers: { ...(token === SESSION_AUTH ? {} : { Authorization: `Bearer ${token}` }), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+      body: body === undefined ? undefined : JSON.stringify(body),
       credentials: 'include',
       signal: AbortSignal.timeout(timeout),
     })
@@ -127,6 +151,10 @@ async function fetchActivityJson(baseUrl: string, path: string, token: string, m
   }
   if (response.status === 401 || response.status === 403) throw new Error('Your sign-in expired. Please sign in again.')
   if (response.status === 404) throw new Error('Activity not found.')
+  if (response.status === 422) {
+    const data: unknown = await response.json().catch(() => null)
+    throw new Error(isRecord(data) && typeof data.detail === 'string' ? data.detail : 'Check the supplied values and try again.')
+  }
   if (!response.ok) throw new Error('Activities are unavailable right now. Please try again shortly.')
   return response.json().catch(() => null)
 }
@@ -168,6 +196,57 @@ export async function startActivityGrade(baseUrl: string, id: string, token: str
   const data = await fetchActivityJson(baseUrl, `/activities/${encodeURIComponent(id)}/grade`, token, 'POST')
   if (!isActivityGrade(data)) throw new Error('The service returned an unexpected grade response.')
   return data
+}
+
+const isProfile = (data: unknown): data is AthleteProfile => isRecord(data)
+  && (data.name === null || typeof data.name === 'string' && data.name.trim().length > 0 && data.name.length <= 100)
+  && typeof data.threshold_heart_rate_bpm === 'number' && Number.isInteger(data.threshold_heart_rate_bpm)
+  && data.threshold_heart_rate_bpm >= 30 && data.threshold_heart_rate_bpm <= 250
+
+export async function fetchProfile(baseUrl: string, token: string): Promise<AthleteProfile> {
+  const data = await fetchActivityJson(baseUrl, '/profile', token)
+  if (!isProfile(data)) throw new Error('The service returned an unexpected profile response.')
+  return data
+}
+
+export async function saveProfile(baseUrl: string, token: string, profile: AthleteProfile): Promise<AthleteProfile> {
+  const values = { ...profile, name: profile.name?.trim() ?? '' }
+  if (!isProfile(values)) throw new Error('Enter your name and a whole-number threshold between 30 and 250 bpm.')
+  const data = await fetchActivityJson(baseUrl, '/profile', token, 'PUT', 30_000, values)
+  if (!isProfile(data)) throw new Error('The service returned an unexpected profile response.')
+  return data
+}
+
+export async function fetchActivityTss(baseUrl: string, id: string, token: string, inputs?: TssInputs): Promise<ActivityTss> {
+  if (Object.entries(inputs ?? {}).some(([key, value]) => !Number.isFinite(value) || value < 0 || value === 0 && key !== 'normalized_power_watts')) {
+    throw new Error('Enter valid positive values; normalized power may be zero.')
+  }
+  const query = new URLSearchParams(Object.entries(inputs ?? {}).map(([key, value]) => [key, String(value)]))
+  const data = await fetchActivityJson(baseUrl, `/activities/${encodeURIComponent(id)}/tss${query.size ? `?${query}` : ''}`, token)
+  if (!isRecord(data) || data.activity_id !== id
+    || !['cycling_power', 'running_pace_estimate', 'heart_rate_estimate'].includes(String(data.method))
+    || data.intensity_unit !== (data.method === 'cycling_power' ? 'W' : data.method === 'heart_rate_estimate' ? 'bpm' : 'm/s')
+    || !['tss', 'intensity_factor', 'intensity', 'duration_seconds', 'threshold'].every((key) =>
+      typeof data[key] === 'number' && Number.isFinite(data[key]) && (data[key] as number) >= 0)
+    || (data.duration_seconds as number) <= 0 || (data.threshold as number) <= 0
+    || !Array.isArray(data.warnings) || !data.warnings.every((item) => typeof item === 'string')) {
+    throw new Error('The service returned an unexpected TSS response.')
+  }
+  return data as ActivityTss
+}
+
+export async function fetchWeeklyTss(baseUrl: string, token: string, today = new Date()): Promise<WeeklyTss> {
+  const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const data = await fetchActivityJson(baseUrl, `/activities/tss/weekly?week_of=${localDate}`, token)
+  if (!isRecord(data)
+    || ![data.week_start, data.week_end].every((value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)))
+    || !['scored_activity_count', 'excluded_activity_count'].every((key) => typeof data[key] === 'number' && Number.isInteger(data[key]) && (data[key] as number) >= 0)
+    || !(data.tss === null || typeof data.tss === 'number' && Number.isFinite(data.tss) && data.tss >= 0)
+    || typeof data.threshold_heart_rate_bpm !== 'number' || !Number.isInteger(data.threshold_heart_rate_bpm)
+    || data.threshold_heart_rate_bpm < 30 || data.threshold_heart_rate_bpm > 250) {
+    throw new Error('The service returned an unexpected weekly TSS response.')
+  }
+  return data as WeeklyTss
 }
 
 export async function fetchActivityIndex(baseUrl: string, token: string): Promise<ActivityIndex[]> {

@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import psycopg
 import pytest
 from scripts import sync_garmindb
 
@@ -171,3 +172,74 @@ def test_copies_sqlite_activity_names_to_postgres(tmp_path, monkeypatch) -> None
     assert cursor.executemany.call_args.args[1] == [
         ("Morning Run", "123", "Morning Run")
     ]
+
+
+def test_backfills_all_activity_tss_with_saved_threshold(monkeypatch) -> None:
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    cursor = connection.cursor.return_value
+    cursor.__enter__.return_value = cursor
+    cursor.fetchall.return_value = [
+        ("run", "running", 160, 3600.0),
+        ("bike", "cycling", 160, 1800.0),
+        ("missing", "running", None, 3600.0),
+        ("unsupported", "swimming", 160, 3600.0),
+        ("invalid", "running", 160, -1.0),
+    ]
+    monkeypatch.setattr(sync_garmindb, "_fetch_tss_threshold", lambda: 160)
+    monkeypatch.setattr(sync_garmindb, "_get_postgres_parameters", lambda _: {})
+    monkeypatch.setattr(sync_garmindb.psycopg, "connect", lambda **_: connection)
+
+    for _ in range(2):
+        assert sync_garmindb._sync_postgres_activity_tss("garmin") == (2, 3)
+        assert cursor.executemany.call_args.args[1] == [
+            (100.0, "run", 100.0),
+            (50.0, "bike", 50.0),
+            (None, "missing", None),
+            (None, "unsupported", None),
+            (None, "invalid", None),
+        ]
+    assert "ADD COLUMN IF NOT EXISTS tss" in cursor.execute.call_args_list[0].args[0]
+    assert "WHERE" not in cursor.execute.call_args_list[1].args[0]
+
+
+@pytest.mark.parametrize(
+    ("table", "profile", "expected"),
+    [(None, None, 157), ("athlete_profile", None, 157), ("athlete_profile", (165,), 165)],
+)
+def test_reads_tss_profile_threshold(monkeypatch, table, profile, expected) -> None:
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.side_effect = [(table,), profile]
+    monkeypatch.setenv("DB_NAME", "weather")
+    monkeypatch.setattr(sync_garmindb, "_get_postgres_parameters", lambda _: {})
+    monkeypatch.setattr(sync_garmindb.psycopg, "connect", lambda **_: connection)
+
+    assert sync_garmindb._fetch_tss_threshold() == expected
+
+
+def test_tss_database_failure_fails_sync(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sync_garmindb, "_fetch_tss_threshold", MagicMock(side_effect=psycopg.Error)
+    )
+    with pytest.raises(SystemExit, match="cannot calculate activity TSS"):
+        sync_garmindb._sync_postgres_activity_tss("garmin")
+
+
+def test_sync_updates_tss_after_activity_names(tmp_path, monkeypatch) -> None:
+    target = tmp_path / "garmin_activities.db"
+    monkeypatch.setenv("GARMINDB_PATH", str(target))
+    monkeypatch.setenv("DB_NAME_GARMIN", "garmin")
+    monkeypatch.setattr(sync_garmindb, "_get_garmin_config", lambda _: (tmp_path, {}))
+    for name in ("_bootstrap_database", "_sync_sqlite", "_import_postgres"):
+        monkeypatch.setattr(sync_garmindb, name, MagicMock())
+    monkeypatch.setattr(sync_garmindb, "_validate_database", lambda *_: True)
+    updates = MagicMock()
+    updates.names.return_value = 5
+    updates.tss.return_value = (4, 1)
+    monkeypatch.setattr(sync_garmindb, "_sync_postgres_activity_names", updates.names)
+    monkeypatch.setattr(sync_garmindb, "_sync_postgres_activity_tss", updates.tss)
+
+    sync_garmindb.main()
+
+    assert [call[0] for call in updates.mock_calls] == ["names", "tss"]

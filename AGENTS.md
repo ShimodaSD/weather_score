@@ -131,6 +131,29 @@ The `#predictions` page uses the protected
 `tests/scores/test_running_predictions.py` and `tests/api/test_activities.py`.
 Chart conversion is checked in `apps/web/src/activityChart.test.ts`; run it with
 the frontend `pnpm test` command.
+Dashboard sync and grade interactions are checked by
+`apps/web/tests/activities.browser.cjs`; see `apps/web/README.md` for the
+development-server and existing Playwright requirements.
+Activity details include a TSS calculator using protected
+`GET /activities/{id}/tss` and `src/weather_score/application/training_stress.py`.
+TSS is training load and may exceed 100; the 0–100 rule applies to weather
+suitability only. Running results are labelled average-pace estimates; cycling
+requires explicit NP, FTP and timer duration. See `docs/training-stress.md`
+for five research sources. Tests live in `tests/scores/test_training_stress.py`,
+`tests/api/test_activities.py`, and `apps/web/src/api.test.ts`, with the shared
+contract in `tests/contracts/activity_tss.json`.
+Activity TSS is read-only and calculated automatically. With no query inputs,
+`GET /activities/{id}/tss` uses the saved `athlete_profile` heart-rate threshold
+(initially 157 bpm). The authenticated `#profile` page uses `GET /profile` and
+`PUT /profile` to store the athlete's name and threshold in the application
+database. The table has one row for the application's single configured account.
+Profile API/persistence tests live in `tests/api/test_profile.py`; client checks
+live in `apps/web/src/api.test.ts`. Missing HR is an error, not a zero load.
+The dashboard's weekly TSS card calls protected `GET /activities/tss/weekly`
+with `week_of` set to the browser's current local date. It sums Monday–Sunday
+activity estimates using the saved threshold and reports excluded activities.
+Coverage is in `tests/scores/test_training_stress.py`,
+`tests/api/test_activities.py`, and `apps/web/src/api.test.ts`.
 
 ## Configuration and security
 
