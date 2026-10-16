@@ -2,9 +2,28 @@
 
 All endpoints require the configured bearer token.
 
+`GET /activities/{activity_id}/tss` automatically calculates heart-rate-based
+training load with the saved profile threshold (initially 157 bpm).
+Explicit query inputs remain supported: running uses recorded distance/moving time and
+`threshold_pace_seconds_per_km`; cycling requires `ftp_watts`,
+`normalized_power_watts` and matching `duration_seconds`. See
+[the formula, limitations and five research sources](training-stress.md).
+Results are not persisted and may exceed 100.
+Alternatively, `threshold_heart_rate_bpm=157` selects an average-heart-rate-zone
+estimate using recorded average HR and elapsed time. The detail page defaults
+to the saved profile. Missing HR returns 422; see the method limitations.
+The Activities dashboard and full details show TSS without inputs.
+`GET /profile` reads the name and threshold; `PUT /profile` saves both from the
+new `#profile` page. The application's `athlete_profile` table stores one row
+for the single configured account. All profile endpoints require authentication.
+
 - `GET /activities/index` returns every activity's `activity_id`, `started_at`,
   `activity_type`, and `name`, newest first. It reads only the main activities
   table for fast dashboard selection.
+- `GET /activities/tss/weekly?week_of=YYYY-MM-DD` sums activity TSS for the
+  Monday–Sunday week containing the browser's local date. It uses the current
+  profile threshold and reports scored/excluded activity counts; an empty week
+  returns zero. The dashboard displays this total independently of list filters.
 - `GET /activities?activity_type=running&limit=50` returns recent summaries.
 - `GET /activities/{activity_id}/summary` returns only the main statistics for
   one ID, without loading laps or per-sample records.

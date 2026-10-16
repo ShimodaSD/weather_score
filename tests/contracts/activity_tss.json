@@ -1,0 +1,13 @@
+{
+  "activity_id": "123",
+  "tss": 200.0,
+  "method": "cycling_power",
+  "duration_seconds": 7200.0,
+  "intensity_factor": 1.0,
+  "intensity": 250.0,
+  "threshold": 250.0,
+  "intensity_unit": "W",
+  "warnings": [
+    "Use normalized power and timer duration from the same recording, including zero-power coasting. Average power is not a substitute."
+  ]
+}

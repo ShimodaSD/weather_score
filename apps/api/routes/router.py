@@ -11,6 +11,7 @@ except ImportError:
 
 from .garmin import router as garmin_router
 from .location import router as location_router
+from .profile import router as profile_router
 from .run_grade import router as run_grade_router
 from .score import router as score_router
 from .system import router as system_router
@@ -25,3 +26,4 @@ api_router.include_router(
     dependencies=[Depends(require_access_token)],
 )
 api_router.include_router(run_grade_router)
+api_router.include_router(profile_router)

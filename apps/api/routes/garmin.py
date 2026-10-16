@@ -1,17 +1,24 @@
 """Visualization-ready Garmin activity endpoints."""
 
+from datetime import date, datetime, time, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from psycopg.rows import dict_row
 from weather_score.application.running_predictions import calculate_running_predictions
+from weather_score.application.training_stress import (
+    calculate_activity_tss,
+    calculate_tss_total,
+)
 
 try:
     from ..schemas.activity import (
         ActivityDetailResponse,
         ActivityIndexResponse,
         ActivityResponse,
+        ActivityTssResponse,
         RunningPredictionsResponse,
+        WeeklyTssResponse,
     )
     from ..schemas.activity_grade import ActivityGradeResponse
     from ..security import require_access_token
@@ -21,6 +28,7 @@ try:
         queue_activity_grade,
     )
     from ..services.garmin import run_garmindb_sync
+    from ..services.profile import fetch_profile
     from .connections.database import garmin_pool
 except ImportError:
     from routes.connections.database import garmin_pool
@@ -28,7 +36,9 @@ except ImportError:
         ActivityDetailResponse,
         ActivityIndexResponse,
         ActivityResponse,
+        ActivityTssResponse,
         RunningPredictionsResponse,
+        WeeklyTssResponse,
     )
     from schemas.activity_grade import ActivityGradeResponse
     from security import require_access_token
@@ -38,6 +48,7 @@ except ImportError:
         queue_activity_grade,
     )
     from services.garmin import run_garmindb_sync
+    from services.profile import fetch_profile
 
 router = APIRouter(
     prefix="/activities",
@@ -90,6 +101,44 @@ async def fetch_activity_index() -> list[dict[str, object]]:
             "ORDER BY start_time DESC, activity_id DESC"
         )
         return await cursor.fetchall()
+
+
+async def fetch_weekly_tss_inputs(start: date, end: date) -> list[dict[str, object]]:
+    """Read summary data in the half-open interval of recorded activity start times."""
+    async with (
+        garmin_pool.connection() as connection,
+        connection.cursor(row_factory=dict_row) as cursor,
+    ):
+        await cursor.execute(
+            "SELECT sport AS activity_type, avg_hr AS average_heart_rate_bpm, "
+            "EXTRACT(EPOCH FROM elapsed_time)::double precision AS elapsed_seconds "
+            "FROM garmin_activities.activities WHERE start_time >= %s AND start_time < %s",
+            (datetime.combine(start, time.min), datetime.combine(end, time.min)),
+        )
+        return await cursor.fetchall()
+
+
+@router.get(
+    "/tss/weekly", response_model=WeeklyTssResponse, summary="Get weekly TSS total"
+)
+async def get_weekly_tss(week_of: date) -> dict[str, object]:
+    """Sum the week containing the browser's local calendar date."""
+    start = week_of - timedelta(days=week_of.weekday())
+    try:
+        end = start + timedelta(days=7)
+    except OverflowError as error:
+        raise HTTPException(
+            status_code=422, detail="Week is outside the supported date range."
+        ) from error
+    profile = await fetch_profile()
+    activities = await fetch_weekly_tss_inputs(start, end)
+    total = calculate_tss_total(activities, profile["threshold_heart_rate_bpm"])
+    return {
+        "week_start": start,
+        "week_end": end - timedelta(days=1),
+        "threshold_heart_rate_bpm": profile["threshold_heart_rate_bpm"],
+        **total,
+    }
 
 
 async def fetch_running_prediction_inputs() -> list[dict[str, object]]:
@@ -270,6 +319,59 @@ async def start_activity_grade(
     grade = await queue_activity_grade(activity_id)
     background_tasks.add_task(process_activity_grade, activity_id)
     return grade
+
+
+@router.get(
+    "/{activity_id}/tss",
+    response_model=ActivityTssResponse,
+    summary="Calculate activity training stress",
+)
+async def get_activity_tss(
+    activity_id: str,
+    threshold_heart_rate_bpm: Annotated[
+        float | None, Query(ge=30, le=250, allow_inf_nan=False)
+    ] = None,
+    threshold_pace_seconds_per_km: Annotated[
+        float | None, Query(gt=0, allow_inf_nan=False)
+    ] = None,
+    ftp_watts: Annotated[float | None, Query(gt=0, allow_inf_nan=False)] = None,
+    normalized_power_watts: Annotated[
+        float | None, Query(ge=0, allow_inf_nan=False)
+    ] = None,
+    duration_seconds: Annotated[float | None, Query(gt=0, allow_inf_nan=False)] = None,
+) -> dict[str, object]:
+    """Calculate load using the recorded sport and an explicit personal threshold."""
+    activity = await fetch_activity_summary(activity_id)
+    if activity is None:
+        raise HTTPException(status_code=404, detail="Activity not found.")
+    if all(
+        value is None
+        for value in (
+            threshold_heart_rate_bpm,
+            threshold_pace_seconds_per_km,
+            ftp_watts,
+            normalized_power_watts,
+            duration_seconds,
+        )
+    ):
+        profile = await fetch_profile()
+        threshold_heart_rate_bpm = profile["threshold_heart_rate_bpm"]
+    try:
+        result = calculate_activity_tss(
+            activity["activity_type"],
+            threshold_heart_rate_bpm=threshold_heart_rate_bpm,
+            average_heart_rate_bpm=activity.get("average_heart_rate_bpm"),
+            elapsed_seconds=activity.get("elapsed_seconds"),
+            moving_seconds=activity.get("moving_seconds"),
+            distance_km=activity.get("distance_km"),
+            threshold_pace_seconds_per_km=threshold_pace_seconds_per_km,
+            ftp_watts=ftp_watts,
+            normalized_power_watts=normalized_power_watts,
+            duration_seconds=duration_seconds,
+        )
+    except (TypeError, ValueError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return {"activity_id": activity_id, **result}
 
 
 @router.get(

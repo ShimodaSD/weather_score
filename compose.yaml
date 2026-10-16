@@ -30,8 +30,13 @@ services:
       - "8002:8002"
     volumes:
       - .:/app
-      - ./workspace/docker/backend_venv:/app/.venv
-      - ./workspace/garmin/.GarminDb:/root/.GarminDb
+      - backend_venv:/app/.venv
+      - type: bind
+        source: /Users/shimoda/.GarminDb/GarminConnectConfig.json
+        target: /root/.GarminDb/GarminConnectConfig.json
+        read_only: true
+        bind:
+          create_host_path: false
 
   postgres:
     image: postgres:17-bookworm

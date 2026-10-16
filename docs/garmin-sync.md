@@ -37,6 +37,13 @@ The project keeps Garmin credentials and session files in GarminDB's standard
 `~/.GarminDb` directory. Install no separate GarminDB checkout or duplicate
 configuration.
 
+The Docker backend mounts
+`/Users/shimoda/.GarminDb/GarminConnectConfig.json` read-only at
+`/root/.GarminDb/GarminConnectConfig.json`, where GarminDB expects it in the
+container. The source file must already exist. After changing the mount, apply
+it with `docker compose up -d --no-deps backend`. This mounts only the config;
+the configured activity-data paths must also be accessible inside Docker.
+
 In `~/.GarminDb/GarminConnectConfig.json`, use SQLite and set the data directory.
 For example, this stores data below `/Users/me/dbs/garmindb/HealthData`:
 
@@ -80,3 +87,16 @@ same PostgreSQL server as `DB_NAME`. GarminDB creates separate `garmin`,
 processes all local files; later runs import only files from the latest overlap.
 After import, the command copies activity names from SQLite into PostgreSQL to
 work around GarminDB 3.9 passing numeric JSON IDs to its text primary key.
+
+Immediately after the name update, the same sync creates the nullable
+`garmin_activities.activities.tss` column if needed and recalculates **all**
+activities, including older activities and those without names. It reuses the
+[heart-rate TSS estimate](training-stress.md) with the threshold saved in
+`DB_NAME`'s `athlete_profile` table (157 bpm before a profile is configured).
+Unsupported sports or missing/invalid heart rate or elapsed time produce SQL
+`NULL`, not zero. A failed database update rolls back the TSS backfill and fails
+the sync. Repeated syncs refresh existing values as well as new activities.
+
+The stored column is a snapshot of the last successful sync. After changing the
+profile threshold, run sync to refresh stored values; the dashboard and weekly
+total already calculate live using the current profile threshold.
