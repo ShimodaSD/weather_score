@@ -1,6 +1,6 @@
 export type ChartPoint = { x: number; y: number | null }
 export const PACE_ZONES = [
-  { name: 'Trote', fastSeconds: 450, slowSeconds: 540, color: '#dce5e7' },
+  { name: 'Trote', fastSeconds: 450, slowSeconds: 540, color: '#dce9dc' },
   { name: 'Zona 0', fastSeconds: 386, slowSeconds: 450, color: '#e5eed7' },
   { name: 'Zona 1', fastSeconds: 346, slowSeconds: 386, color: '#d5e9c5' },
   { name: 'Zona 2', fastSeconds: 307, slowSeconds: 346, color: '#c3e2b5' },
