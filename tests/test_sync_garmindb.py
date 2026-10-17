@@ -40,6 +40,35 @@ def test_generates_private_config_from_environment(tmp_path, monkeypatch):
     assert json.loads(source.read_text()) == template
 
 
+def test_uses_password_from_private_config_when_environment_secret_is_unset(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "GarminConnectConfig.json"
+    source.write_text(
+        json.dumps(
+            {
+                "db": {"type": "sqlite"},
+                "credentials": {"user": "runner", "password": "private"},
+                "directories": {"base_dir": "/outside/data"},
+            }
+        )
+    )
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    monkeypatch.setenv("GARMINDB_CONFIG", str(source))
+    monkeypatch.delenv("SECRET_GARMIN", raising=False)
+
+    _, config = sync_garmindb._get_garmin_config(
+        tmp_path / "HealthData" / "DBs" / "garmin_activities.db"
+    )
+
+    assert config["credentials"] == {
+        "user": "runner",
+        "password": "private",
+        "password_file": None,
+        "secure_password": False,
+    }
+
+
 def _create_database(path: Path, activities: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as database:
@@ -141,6 +170,41 @@ def test_postgres_reuses_weather_connection_settings(monkeypatch) -> None:
         "port": "5432",
         "dbname": "garmin",
     }
+
+
+def test_startup_sync_skips_initialized_garmin_database(monkeypatch) -> None:
+    monkeypatch.setenv("DB_NAME", "weather")
+    admin_connection = MagicMock()
+    admin_connection.__enter__.return_value = admin_connection
+    admin_connection.execute.return_value.fetchone.return_value = (1,)
+    garmin_connection = MagicMock()
+    garmin_connection.__enter__.return_value = garmin_connection
+    activities = MagicMock()
+    activities.fetchone.return_value = ("garmin_activities.activities",)
+    garmin_connection.execute.return_value = activities
+    monkeypatch.setattr(
+        sync_garmindb, "_get_postgres_parameters", lambda name: {"dbname": name}
+    )
+    monkeypatch.setattr(
+        sync_garmindb.psycopg,
+        "connect",
+        MagicMock(side_effect=[admin_connection, garmin_connection]),
+    )
+
+    assert not sync_garmindb._postgres_sync_needed("garmin")
+
+
+def test_startup_sync_skips_when_garmin_config_is_missing(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--if-needed"])
+    monkeypatch.setenv("DB_NAME_GARMIN", "garmin")
+    monkeypatch.setenv("GARMINDB_CONFIG", str(tmp_path / "missing.json"))
+    monkeypatch.setattr(sync_garmindb, "_postgres_sync_needed", lambda _: True)
+
+    sync_garmindb.main()
+
+    assert "startup import skipped" in capsys.readouterr().out
 
 
 def test_copies_sqlite_activity_names_to_postgres(tmp_path, monkeypatch) -> None:

@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 import subprocess
+import sys
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -54,12 +55,12 @@ def _get_garmin_config(target: Path) -> tuple[Path, dict[str, object]]:
         _fail_sync("GarminDB config must use SQLite")
 
     if os.environ.get("GARMINDB_CONFIG"):
-        password = os.environ.get("SECRET_GARMIN")
-        if not password:
-            _fail_sync("set SECRET_GARMIN in .env")
         credentials = config.get("credentials")
         if not isinstance(credentials, dict) or not credentials.get("user"):
             _fail_sync("set credentials.user in GarminConnectConfig.json")
+        password = os.environ.get("SECRET_GARMIN") or credentials.get("password")
+        if not password:
+            _fail_sync("set SECRET_GARMIN in .env")
         credentials.update(
             password=password, secure_password=False, password_file=None
         )
@@ -179,6 +180,27 @@ def _prepare_postgres_database(database_name: str) -> bool:
     except psycopg.Error:
         _fail_sync("cannot create or inspect the Garmin PostgreSQL database")
     return schemas != {"garmin", "garmin_activities", "garmin_monitoring"}
+
+
+def _postgres_sync_needed(database_name: str) -> bool:
+    weather_database = os.environ.get("DB_NAME")
+    if not weather_database:
+        _fail_sync("missing PostgreSQL setting: DB_NAME")
+    admin_parameters = _get_postgres_parameters(weather_database)
+    try:
+        with psycopg.connect(**admin_parameters, autocommit=True) as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM pg_database WHERE datname = %s", (database_name,)
+            ).fetchone()
+        if not exists:
+            return True
+        with psycopg.connect(**_get_postgres_parameters(database_name)) as connection:
+            activities = connection.execute(
+                "SELECT to_regclass('garmin_activities.activities')"
+            ).fetchone()[0]
+    except psycopg.Error:
+        _fail_sync("cannot inspect the Garmin PostgreSQL database")
+    return not activities
 
 
 def _import_postgres(
@@ -313,6 +335,24 @@ def _sync_sqlite(working_directory: Path) -> None:
 
 def main() -> None:
     """Bootstrap a GarminDB checkpoint when needed and run an incremental refresh."""
+    if "--if-needed" in sys.argv[1:]:
+        database_name = os.environ.get("DB_NAME_GARMIN")
+        if not database_name:
+            _fail_sync("missing PostgreSQL setting: DB_NAME_GARMIN")
+        if not _postgres_sync_needed(database_name):
+            print("garmin-sync: PostgreSQL is initialized; skipping startup import")
+            return
+        config_path = Path(
+            os.environ.get(
+                "GARMINDB_CONFIG",
+                Path.home() / ".GarminDb" / "GarminConnectConfig.json",
+            )
+        )
+        if not config_path.is_file():
+            print(
+                f"garmin-sync: startup import skipped; GarminDB config is missing: {config_path}"
+            )
+            return
     configured_target = os.environ.get("GARMINDB_PATH")
     if not configured_target:
         _fail_sync("set GARMINDB_PATH to garmin_activities.db")

@@ -8,7 +8,7 @@ from weather_score.weather.providers import weather_api
 @pytest.mark.asyncio
 async def test_returns_weather_for_coordinates(monkeypatch):
     realtime_weather = Mock(return_value={"current": {"temp_c": 20}})
-    monkeypatch.setattr(weather_api.instance, "realtime_weather", realtime_weather)
+    monkeypatch.setattr(weather_api._client(), "realtime_weather", realtime_weather)
 
     result = await weather_api.fetch_current_weather("-27.47", "153.03")
 
@@ -19,7 +19,7 @@ async def test_returns_weather_for_coordinates(monkeypatch):
 @pytest.mark.asyncio
 async def test_propagates_provider_errors(monkeypatch):
     realtime_weather = Mock(side_effect=TimeoutError("timed out"))
-    monkeypatch.setattr(weather_api.instance, "realtime_weather", realtime_weather)
+    monkeypatch.setattr(weather_api._client(), "realtime_weather", realtime_weather)
 
     with pytest.raises(TimeoutError, match="timed out"):
         await weather_api.fetch_current_weather("-27.47", "153.03")
@@ -29,7 +29,7 @@ async def test_propagates_provider_errors(monkeypatch):
 @pytest.mark.parametrize("response", [None, {}, {"current": None}])
 async def test_rejects_malformed_weather(monkeypatch, response):
     monkeypatch.setattr(
-        weather_api.instance, "realtime_weather", Mock(return_value=response)
+        weather_api._client(), "realtime_weather", Mock(return_value=response)
     )
 
     with pytest.raises(TypeError, match="invalid weather data"):
@@ -77,7 +77,7 @@ async def test_returns_history_hour_closest_to_recorded_minute(monkeypatch):
             }
         }
     )
-    monkeypatch.setattr(weather_api.instance, "history_weather", history_weather)
+    monkeypatch.setattr(weather_api._client(), "history_weather", history_weather)
 
     result = await weather_api.fetch_historical_conditions(
         -27.47, 153.03, datetime(2026, 9, 11, 15, 36, tzinfo=UTC)
@@ -101,7 +101,7 @@ async def test_returns_history_hour_closest_to_recorded_minute(monkeypatch):
 )
 async def test_rejects_malformed_history(monkeypatch, response):
     monkeypatch.setattr(
-        weather_api.instance, "history_weather", Mock(return_value=response)
+        weather_api._client(), "history_weather", Mock(return_value=response)
     )
 
     with pytest.raises(TypeError, match="invalid historical data"):
@@ -111,7 +111,7 @@ async def test_rejects_malformed_history(monkeypatch, response):
 @pytest.mark.asyncio
 async def test_rejects_out_of_range_historical_values(monkeypatch):
     monkeypatch.setattr(
-        weather_api.instance,
+        weather_api._client(),
         "history_weather",
         Mock(
             return_value={
