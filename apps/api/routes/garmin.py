@@ -4,9 +4,9 @@ from datetime import date, datetime, time, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from psycopg.rows import dict_row
-from weather_score.application.running_predictions import calculate_running_predictions
-from weather_score.application.training_stress import (
+lazy from psycopg.rows import dict_row
+lazy from weather_score.application.running_predictions import calculate_running_predictions
+lazy from weather_score.application.training_stress import (
     calculate_activity_tss,
     calculate_tss_total,
 )

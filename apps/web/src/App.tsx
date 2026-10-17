@@ -136,9 +136,7 @@ export default function App() {
         <div className="intro-copy"><div className="eyebrow"><span className="tiny-line" /> WEATHER, TRANSLATED FOR RUNNERS</div>
         <h1 id="page-title">Is today a <em>good day to run?</em></h1>
         <p>Get a running score for your location and pace. See how wind and heat stress could affect your effort.</p>
-        <a className="intro-cta" href="#check">Check my running conditions <Icon name="arrow" /></a>
         <span className="intro-reassurance">Free to check · No account needed</span></div>
-        <div className="intro-aside" aria-label="What your score covers"><span className="intro-aside-label">ONE CLEAR ANSWER</span><Icon name="sun" /><strong>Weather that means something when you move.</strong><p>From a local forecast to a score you can actually use.</p><div><span>01&nbsp; Your place</span><span>02&nbsp; Your pace</span><span>03&nbsp; Your score</span></div></div>
       </section>
 
       <section className="workspace" id="check" aria-label="Check running conditions">

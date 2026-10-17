@@ -1,15 +1,17 @@
 """Copy GarminDB activities from SQLite into PostgreSQL."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
 import sqlite3
 from pathlib import Path
 
-from fastapi import HTTPException
-from psycopg import Error as PsycopgError
-from psycopg.types.json import Jsonb
-from psycopg_pool import PoolClosed, PoolTimeout
+lazy from fastapi import HTTPException
+lazy from psycopg import Error as PsycopgError
+lazy from psycopg.types.json import Jsonb
+lazy from psycopg_pool import PoolClosed, PoolTimeout
 
 BATCH_SIZE = 1000
 logger = logging.getLogger(__name__)

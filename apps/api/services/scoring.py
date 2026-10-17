@@ -4,15 +4,15 @@ import asyncio
 import math
 from numbers import Real
 
-import requests
-from fastapi import HTTPException, status
-from weather_score.application.main import (
+lazy import requests
+lazy from fastapi import HTTPException, status
+lazy from weather_score.application.main import (
     calculate_activity_score,
     calculate_activity_score_by_training_type,
 )
-from weather_score.application.run_grade import RunGrade, calculate_run_grade
-from weather_score.weather.providers.openmeteo import fetch_elevation
-from weather_score.weather.providers.weather_api import fetch_current_weather
+lazy from weather_score.application.run_grade import RunGrade, calculate_run_grade
+lazy from weather_score.weather.providers.openmeteo import fetch_elevation
+lazy from weather_score.weather.providers.weather_api import fetch_current_weather
 
 try:
     from ..schemas.location import (

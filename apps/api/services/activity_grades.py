@@ -4,15 +4,15 @@ import asyncio
 import logging
 from dataclasses import asdict
 
-from psycopg.rows import dict_row
-from psycopg.types.json import Jsonb
-from weather_score.application.activity_grade import (
+lazy from psycopg.rows import dict_row
+lazy from psycopg.types.json import Jsonb
+lazy from weather_score.application.activity_grade import (
     build_activity_segments,
     calculate_headwind_component,
     calculate_outdoor_wbgt,
 )
-from weather_score.application.run_grade import calculate_run_grade
-from weather_score.weather.providers.weather_api import fetch_historical_conditions
+lazy from weather_score.application.run_grade import calculate_run_grade
+lazy from weather_score.weather.providers.weather_api import fetch_historical_conditions
 
 try:
     from ..database import pool

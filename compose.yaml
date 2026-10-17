@@ -11,9 +11,14 @@ services:
       - ./workspace/docker/frontend_store:/app/.pnpm-store
 
   backend:
-    image: ghcr.io/astral-sh/uv:python3.12-bookworm
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: weather-score-backend
     working_dir: /app/apps/api
-    command: uv run --frozen --extra garmin uvicorn main:app --host 0.0.0.0 --port 8002
+    command: >-
+      sh -c 'uv run --frozen --extra garmin python /app/scripts/sync_garmindb.py --if-needed
+      && exec uv run --frozen --extra garmin uvicorn main:app --host 0.0.0.0 --port 8002'
     env_file: .env
     environment:
       DB_HOST: postgres
@@ -30,10 +35,10 @@ services:
       - "8002:8002"
     volumes:
       - .:/app
-      - backend_venv:/app/.venv
+      - ./workspace/docker/backend_venv:/app/.venv
       - type: bind
         source: /Users/shimoda/.GarminDb/GarminConnectConfig.json
-        target: /root/.GarminDb/GarminConnectConfig.json
+        target: /app/GarminConnectConfig.json
         read_only: true
         bind:
           create_host_path: false

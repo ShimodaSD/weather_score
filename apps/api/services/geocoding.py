@@ -2,8 +2,8 @@
 
 import asyncio
 
-import requests
-from fastapi import HTTPException, status
+lazy import requests
+lazy from fastapi import HTTPException, status
 
 try:
     from ..schemas.location import (

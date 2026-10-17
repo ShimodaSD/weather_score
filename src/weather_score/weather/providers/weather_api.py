@@ -5,11 +5,18 @@ from datetime import datetime, timedelta
 from math import isfinite
 from numbers import Real
 
-import weatherapi
+lazy import weatherapi
 
-config = weatherapi.Configuration()
-config.api_key["key"] = os.environ.get("WEATHER_API_KEY")
-instance = weatherapi.APIsApi(weatherapi.ApiClient(config))
+instance = None
+
+
+def _client():
+    global instance
+    if instance is None:
+        config = weatherapi.Configuration()
+        config.api_key["key"] = os.environ.get("WEATHER_API_KEY")
+        instance = weatherapi.APIsApi(weatherapi.ApiClient(config))
+    return instance
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +38,7 @@ async def fetch_current_weather(latitude: str, longitude: str) -> dict:
         raise ValueError("Latitude and longitude are required.")
 
     weather = await asyncio.to_thread(
-        instance.realtime_weather, f"{latitude},{longitude}"
+        _client().realtime_weather, f"{latitude},{longitude}"
     )
     if not isinstance(weather, dict) or not isinstance(weather.get("current"), dict):
         raise TypeError("WeatherAPI returned invalid weather data.")
@@ -49,7 +56,7 @@ async def fetch_historical_conditions(
     )
     target = target.replace(minute=0)
     weather = await asyncio.to_thread(
-        instance.history_weather,
+        _client().history_weather,
         f"{latitude},{longitude}",
         target.date().isoformat(),
         hour=target.hour,
