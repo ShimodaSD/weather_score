@@ -5,7 +5,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 lazy from psycopg.rows import dict_row
-lazy from weather_score.application.running_predictions import calculate_running_predictions
+lazy from weather_score.application.running_predictions import (
+    calculate_running_predictions,
+)
 lazy from weather_score.application.training_stress import (
     calculate_activity_tss,
     calculate_tss_total,
@@ -157,24 +159,6 @@ async def fetch_running_prediction_inputs() -> list[dict[str, object]]:
         return await cursor.fetchall()
 
 
-async def fetch_activities(
-    activity_type: str | None, limit: int, offset: int
-) -> list[dict[str, object]]:
-    """Return recent activities ready for charts and summary cards."""
-    query = f"""
-        {ACTIVITY_SELECT}
-        WHERE (%s::text IS NULL OR a.sport = %s)
-        ORDER BY a.start_time DESC, a.activity_id DESC
-        LIMIT %s OFFSET %s
-    """
-    async with (
-        garmin_pool.connection() as connection,
-        connection.cursor(row_factory=dict_row) as cursor,
-    ):
-        await cursor.execute(query, (activity_type, activity_type, limit, offset))
-        return await cursor.fetchall()
-
-
 async def fetch_activity_summary(activity_id: str) -> dict[str, object] | None:
     """Return the summary fields for one activity without loading its records."""
     async with (
@@ -246,16 +230,6 @@ async def fetch_activity(activity_id: str) -> dict[str, object] | None:
         )
         activity["files"] = await cursor.fetchall()
         return activity
-
-
-@router.get("", response_model=list[ActivityResponse], summary="List activities")
-async def list_activities(
-    activity_type: Annotated[str | None, Query(min_length=1, max_length=50)] = None,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
-) -> list[dict[str, object]]:
-    """List recent activities, optionally filtered by activity type."""
-    return await fetch_activities(activity_type, limit, offset)
 
 
 @router.get(

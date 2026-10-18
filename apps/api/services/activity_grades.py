@@ -51,15 +51,20 @@ UPGRADE_ACTIVITY_GRADES = """
 """
 
 
+async def initialize_activity_grades() -> None:
+    """Create and upgrade grade storage at application startup."""
+    async with pool.connection() as connection, connection.cursor() as cursor:
+        await cursor.execute(CREATE_ACTIVITY_GRADES)
+        await cursor.execute(ALTER_ACTIVITY_GRADES)
+        await cursor.execute(UPGRADE_ACTIVITY_GRADES)
+
+
 async def queue_activity_grade(activity_id: str) -> dict[str, object]:
     """Create or reset the persisted processing state for an activity."""
     async with (
         pool.connection() as connection,
         connection.cursor(row_factory=dict_row) as cursor,
     ):
-        await cursor.execute(CREATE_ACTIVITY_GRADES)
-        await cursor.execute(ALTER_ACTIVITY_GRADES)
-        await cursor.execute(UPGRADE_ACTIVITY_GRADES)
         await cursor.execute(
             """
             INSERT INTO activity_grades (activity_id, status, calculation_version)
@@ -81,9 +86,6 @@ async def fetch_activity_grades() -> list[dict[str, object]]:
         pool.connection() as connection,
         connection.cursor(row_factory=dict_row) as cursor,
     ):
-        await cursor.execute(CREATE_ACTIVITY_GRADES)
-        await cursor.execute(ALTER_ACTIVITY_GRADES)
-        await cursor.execute(UPGRADE_ACTIVITY_GRADES)
         await cursor.execute("SELECT * FROM activity_grades ORDER BY updated_at DESC")
         return await cursor.fetchall()
 

@@ -1,7 +1,7 @@
 import importlib
 import os
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -29,6 +29,28 @@ PROCESSING = {
     "updated_at": NOW,
     "completed_at": None,
 }
+
+
+@pytest.mark.asyncio
+async def test_grade_schema_upgrades_run_during_initialization_only(monkeypatch):
+    cursor = AsyncMock()
+    cursor.fetchall.return_value = []
+    connection = MagicMock()
+    connection.cursor.return_value.__aenter__ = AsyncMock(return_value=cursor)
+    pool = MagicMock()
+    pool.connection.return_value.__aenter__ = AsyncMock(return_value=connection)
+    monkeypatch.setattr(activity_grades, "pool", pool)
+    await activity_grades.initialize_activity_grades()
+    assert [call.args[0] for call in cursor.execute.await_args_list] == [
+        activity_grades.CREATE_ACTIVITY_GRADES,
+        activity_grades.ALTER_ACTIVITY_GRADES,
+        activity_grades.UPGRADE_ACTIVITY_GRADES,
+    ]
+    cursor.reset_mock()
+    assert await activity_grades.fetch_activity_grades() == []
+    cursor.execute.assert_awaited_once_with(
+        "SELECT * FROM activity_grades ORDER BY updated_at DESC"
+    )
 
 
 def test_activity_grade_endpoints_require_bearer_token():

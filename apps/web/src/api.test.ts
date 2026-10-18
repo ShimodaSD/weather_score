@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchActivityTss, fetchWeeklyTss, fetchProfile, saveProfile, fetchRunGrade, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities } from './api.ts'
+import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchActivityTss, fetchWeeklyTss, fetchProfile, saveProfile, fetchRunGrade, fetchRunScore, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities } from './api.ts'
 
 
 const grade = JSON.parse(readFileSync(new URL('../../../tests/contracts/run_grade.json', import.meta.url), 'utf8'))
@@ -135,6 +135,18 @@ test('grade client rejects invalid or failed responses', async (t) => {
   await assert.rejects(fetchRunGrade('/api', 'Brisbane', '5:20'), /couldn’t reach/)
   await assert.rejects(fetchRunGrade('/api', ' ', '5:20'), /Enter a town/)
   await assert.rejects(fetchRunGrade('/api', 'Brisbane', 'bad pace'), /Enter a pace/)
+})
+
+test('weather score client accepts score and selected locations', async (t) => {
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response('84.5'))
+  assert.equal(await fetchRunScore('/api', ' Brisbane '), 84.5)
+  assert.equal(mock.mock.calls[0].arguments[0], '/api/score/run?address=Brisbane')
+  const location = { name: 'Springfield', latitude: '-37.41', longitude: '144.82' }
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify({ options: [location] })))
+  assert.deepEqual(await fetchRunScore('/api', 'Springfield'), [location])
+  mock.mock.mockImplementation(async () => new Response('84.5'))
+  assert.equal(await fetchRunScore('/api', 'Springfield', location), 84.5)
+  assert.equal(mock.mock.calls.at(-1)?.arguments[0], '/api/score/run?address=Springfield&latitude=-37.41&longitude=144.82')
 })
 
 test('activity index and detail use protected, validated endpoints', async (t) => {

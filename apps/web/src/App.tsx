@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type CSSProperties } from 'react'
-import { SESSION_AUTH, endSession, fetchAccessToken, fetchRunGrade, hasSession, type LocationOption, type RunGrade } from './api'
+import { SESSION_AUTH, endSession, fetchAccessToken, fetchRunGrade, fetchRunScore, hasSession, type LocationOption, type RunGrade } from './api'
 import Activities from './Activities'
 
 const ActivityDetailPage = lazy(() => import('./ActivityDetailPage'))
@@ -29,7 +29,7 @@ export default function App() {
   const [signInError, setSignInError] = useState('')
   const [signOutError, setSignOutError] = useState('')
   const [signingIn, setSigningIn] = useState(false)
-  const [result, setResult] = useState<{ grade: RunGrade; address: string; pace: string } | null>(null)
+  const [result, setResult] = useState<{ score: number; grade?: RunGrade; address: string; pace: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [options, setOptions] = useState<LocationOption[]>([])
@@ -93,17 +93,19 @@ export default function App() {
     if (busy.current) return
     const location = address.trim()
     if (!location) { setError('Enter a town, suburb, or address.'); return }
-    if (!pace.trim()) { setError('Enter your average pace per kilometre.'); return }
     busy.current = true
     setLoading(true)
     setError('')
     setResult(null)
     try {
       const selected = options[Number(selectedOption)]
-      const response = await fetchRunGrade(apiBase, location, pace, selected)
+      const response = pace.trim()
+        ? await fetchRunGrade(apiBase, location, pace, selected)
+        : await fetchRunScore(apiBase, location, selected)
       if (!Array.isArray(response)) {
-        setResult({ grade: response, address: selected?.name ?? location, pace: pace.trim() })
-        setOptions([])
+        setResult(typeof response === 'number'
+          ? { score: response, address: selected?.name ?? location, pace: '' }
+          : { score: response.score, grade: response, address: selected?.name ?? location, pace: pace.trim() })
       } else {
         setOptions(response)
         setSelectedOption('')
@@ -148,10 +150,10 @@ export default function App() {
             <label htmlFor="address">Your location</label>
             <div className={`location-input ${error ? 'input-error' : ''}`}><Icon name="pin" /><input id="address" name="address" placeholder="Town, suburb, or street address" value={address} onChange={(event) => { setAddress(event.target.value); setOptions([]); setSelectedOption('') }} required maxLength={300} disabled={loading} aria-describedby={error ? 'location-hint search-error' : 'location-hint'} /></div>
             <p id="location-hint" className="field-hint">Add your city or country for a more accurate match.</p>
-            <label className="field-label" htmlFor="pace">Average pace per kilometre</label>
-            <input className="text-field" id="pace" name="pace" type="text" placeholder="5:20" pattern="[0-9]+:[0-5][0-9]" value={pace} onChange={(event) => setPace(event.target.value)} required maxLength={16} disabled={loading} aria-describedby="pace-hint" />
-            <p id="pace-hint" className="field-hint">Minutes:seconds, such as 5:20 for five minutes and twenty seconds.</p>
             {options.length > 0 && <><label className="location-choice-label" htmlFor="location-choice">Which place did you mean?</label><select id="location-choice" value={selectedOption} onChange={(event) => setSelectedOption(event.target.value)} required disabled={loading}><option value="">Select a location</option>{options.map((option, index) => <option key={`${option.latitude},${option.longitude}`} value={index}>{option.name}</option>)}</select></>}
+            <label className="field-label" htmlFor="pace">Average pace per kilometre <span>(optional)</span></label>
+            <input className="text-field" id="pace" name="pace" type="text" placeholder="Leave blank to score weather only" pattern="[0-9]+:[0-5][0-9]" value={pace} onChange={(event) => setPace(event.target.value)} maxLength={16} disabled={loading} aria-describedby="pace-hint" />
+            <p id="pace-hint" className="field-hint">{pace.trim() ? 'Minutes:seconds, such as 5:20. Your pace is included in the score.' : 'Optional. Without pace, your score uses weather and elevation only.'}</p>
             <button className="submit" type="submit" disabled={loading}>{loading ? 'Checking conditions…' : options.length ? 'Use this location' : 'Get my running score'}<Icon name="arrow" /></button>
             {error && <p className="error-message" id="search-error" role="alert">{error}</p>}
             <p className="form-note">Free, with no sign-in. Your location is used to find local conditions.</p>
@@ -162,10 +164,10 @@ export default function App() {
         <div className="score-panel" aria-busy={loading}>
           <div className="score-top"><span className="section-label">YOUR RUNNING SCORE</span><span className="status-pill"><span />{loading ? 'Checking' : result ? 'Current conditions' : 'Awaiting location'}</span></div>
           <div className="score-content" role="status" aria-live="polite" aria-atomic="true">
-            <div className={`score-ring ${loading ? 'loading' : ''}`} style={{ '--score': `${result?.grade.score ?? 0}%` } as CSSProperties}><div className="ring-inner"><span className="score-value">{loading ? '···' : result ? Math.round(result.grade.score) : '—'}</span><span className="score-denominator">OUT OF 100</span></div></div>
+            <div className={`score-ring ${loading ? 'loading' : ''}`} style={{ '--score': `${result?.score ?? 0}%` } as CSSProperties}><div className="ring-inner"><span className="score-value">{loading ? '···' : result ? Math.round(result.score) : '—'}</span><span className="score-denominator">OUT OF 100</span></div></div>
             <h2>{loading ? 'Reading the conditions…' : result ? 'Here’s your running outlook.' : 'Your score will appear here.'}</h2>
-            <p>{loading ? 'A moment to check the weather where you’re headed.' : result ? <>Running conditions for <strong>{result.address}</strong> at {result.pace}/km.<br />Higher scores mean more suitable conditions.</> : <>Enter your place and pace to see a score out of 100, plus what the conditions mean for your run.</>}</p>
-            {result && <dl className="grade-details"><div><dt>Running speed</dt><dd>{result.grade.running_speed_kph.toFixed(2)} km/h</dd></div><div><dt>Relative air speed</dt><dd>{result.grade.relative_air_speed_kph.toFixed(2)} km/h</dd></div><div><dt>Wind effort change</dt><dd>{result.grade.wind_metabolic_change_percent > 0 ? '+' : ''}{result.grade.wind_metabolic_change_percent.toFixed(2)}%</dd></div><div><dt>Temperature loss</dt><dd>{result.grade.thermal_performance_loss_percent.toFixed(2)}%</dd></div></dl>}
+            <p>{loading ? 'A moment to check the weather where you’re headed.' : result ? <>Running conditions for <strong>{result.address}</strong>{result.pace ? ` at ${result.pace}/km` : ''}.<br />Higher scores mean more suitable conditions.</> : <>Enter your place to see a score out of 100. Add your pace to include its effect on wind exposure.</>}</p>
+            {result?.grade && <dl className="grade-details"><div><dt>Running speed</dt><dd>{result.grade.running_speed_kph.toFixed(2)} km/h</dd></div><div><dt>Relative air speed</dt><dd>{result.grade.relative_air_speed_kph.toFixed(2)} km/h</dd></div><div><dt>Wind effort change</dt><dd>{result.grade.wind_metabolic_change_percent > 0 ? '+' : ''}{result.grade.wind_metabolic_change_percent.toFixed(2)}%</dd></div><div><dt>Temperature loss</dt><dd>{result.grade.thermal_performance_loss_percent.toFixed(2)}%</dd></div></dl>}
           </div>
           <div className="score-legend"><span>Less suitable</span><div /><span>More suitable</span></div>
           <div className="contours" aria-hidden="true" />

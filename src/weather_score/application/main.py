@@ -55,34 +55,6 @@ async def calculate_activity_score(weather, altitude_data) -> float:
     return round(max(0.0, min(100.0, score)), 2)
 
 
-async def calculate_activity_score_by_training_type(
-    weather, altitude_data, training_type: str
-) -> float:
-    temp, humidity, precipitation, gust, altitude = _weather_values(
-        weather, altitude_data
-    )
-
-    (
-        temp_loss,
-        wind_loss,
-        humidity_loss,
-        altitude_loss,
-        precipitation_loss,
-    ) = await asyncio.gather(
-        calculate_temperature_penalty(temp),
-        calculate_wind_penalty(gust / 3.6),
-        calculate_humidity_interaction_penalty(temp, humidity),
-        calculate_altitude_penalty(altitude),
-        calculate_rain_penalty(precipitation),
-    )
-
-    total_loss = (
-        temp_loss + wind_loss + humidity_loss + altitude_loss + precipitation_loss
-    )
-
-    return round(max(0.0, min(100.0, 100 - total_loss)), 2)
-
-
 async def calculate_temperature_penalty(temperature_c: float) -> float:
     temperature_c = _number("temperature", temperature_c)
     return max(0, 0.0125 * temperature_c**2 - 0.07893 * temperature_c - 0.15)

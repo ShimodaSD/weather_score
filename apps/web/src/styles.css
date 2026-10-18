@@ -65,3 +65,4 @@ main{max-width:1280px;padding:0 40px}.intro{display:grid;grid-template-columns:1
 .intro-copy{max-width:none;white-space:nowrap}.intro h1{max-width:none}.intro em{display:inline}
 @media(max-width:720px){.intro{padding-inline:20px}}
 @media(max-width:720px){.intro-copy{white-space:normal}}
+.activity-sync-progress{display:flex;align-items:center;gap:14px;margin:0 0 24px;padding:18px 20px;background:#e8f2de;border:1px solid #c8ddbd;border-radius:11px;color:#355b3c}.activity-sync-progress p{margin:6px 0 0;color:#526458;font-size:12px;line-height:1.6}
