@@ -10,7 +10,6 @@ except ImportError:
     from security import router as security_router
 
 from .garmin import router as garmin_router
-from .location import router as location_router
 from .profile import router as profile_router
 from .run_grade import router as run_grade_router
 from .score import router as score_router
@@ -19,7 +18,6 @@ from .system import router as system_router
 api_router = APIRouter()
 api_router.include_router(system_router)
 api_router.include_router(security_router)
-api_router.include_router(location_router)
 api_router.include_router(score_router)
 api_router.include_router(
     garmin_router,

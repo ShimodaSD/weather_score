@@ -92,6 +92,10 @@ async def test_profile_persistence_uses_parameterized_upsert_and_preserves_defau
     assert values == ("Runner", 160)
     cursor.reset_mock()
     assert await service.fetch_profile() == cursor.fetchone.return_value
+    cursor.execute.assert_awaited_once()
+    assert cursor.execute.call_args.args[0].strip().startswith("SELECT")
+    cursor.reset_mock()
+    await service.initialize_profile()
     assert "ON CONFLICT (id) DO NOTHING" in cursor.execute.call_args_list[1].args[0]
     assert "DEFAULT 157" in service.CREATE_PROFILE
     assert "CHECK (id = 1)" in service.CREATE_PROFILE

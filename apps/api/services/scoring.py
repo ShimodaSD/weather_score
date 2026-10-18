@@ -6,10 +6,7 @@ from numbers import Real
 
 lazy import requests
 lazy from fastapi import HTTPException, status
-lazy from weather_score.application.main import (
-    calculate_activity_score,
-    calculate_activity_score_by_training_type,
-)
+lazy from weather_score.application.main import calculate_activity_score
 lazy from weather_score.application.run_grade import RunGrade, calculate_run_grade
 lazy from weather_score.weather.providers.openmeteo import fetch_elevation
 lazy from weather_score.weather.providers.weather_api import fetch_current_weather
@@ -20,7 +17,6 @@ try:
         ErrorResponse,
         LocationOptionsResponse,
     )
-    from ..schemas.score import TrainingRunType
     from .geocoding import geocode_address
 except ImportError:
     from schemas.location import (
@@ -28,16 +24,15 @@ except ImportError:
         ErrorResponse,
         LocationOptionsResponse,
     )
-    from schemas.score import TrainingRunType
     from services.geocoding import geocode_address
 
 
 async def score_activity_at_address(
     address: str,
-    training_type: TrainingRunType | None = None,
+    coordinates: CoordinatesResponse | None = None,
 ) -> float | ErrorResponse | LocationOptionsResponse:
     """Fetch conditions for an address and calculate its activity score."""
-    coordinates = await geocode_address(address)
+    coordinates = coordinates or await geocode_address(address)
     if coordinates is None:
         return ErrorResponse(
             error="Could not retrieve latitude and longitude for the given address."
@@ -52,10 +47,6 @@ async def score_activity_at_address(
             fetch_current_weather(latitude, longitude),
             fetch_elevation(latitude, longitude),
         )
-        if training_type is not None:
-            return await calculate_activity_score_by_training_type(
-                weather, altitude, training_type
-            )
         return await calculate_activity_score(weather, altitude)
     except (requests.RequestException, TimeoutError, TypeError, ValueError) as error:
         raise HTTPException(

@@ -61,10 +61,12 @@ Existing routes include:
 
 - `GET /` — service status.
 - `POST /token` — issues the configured bearer token after credential checks.
-- `GET /address-to-lat-long?address=...` — geocodes an address with
-  OpenStreetMap Nominatim.
-- `GET /weather/address?address=...` — geocodes the address and retrieves
-  current weather.
+- `GET /score/run?address=...` — scores weather and elevation without pace.
+- `POST /grade/run?address=...` — scores current conditions with a supplied pace.
+
+Geocoding is internal to scoring; the former standalone geocoding, workout-type
+scoring, and paginated activity-summary list routes have been removed.
+Profile and activity-grade tables are initialized during API startup.
 
 Routes included through `protected_api` require the bearer token. Preserve
 that behavior unless the authentication design is intentionally changed.

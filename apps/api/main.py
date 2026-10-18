@@ -1,23 +1,26 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-lazy import uvicorn
 from fastapi import FastAPI
+lazy import uvicorn
 
 try:
     from .database import pool
     from .routes.connections.database import garmin_pool
     from .routes.router import api_router
+    from .services.activity_grades import initialize_activity_grades
+    from .services.profile import initialize_profile
 except ImportError:
     from database import pool
     from routes.connections.database import garmin_pool
     from routes.router import api_router
+    from services.activity_grades import initialize_activity_grades
+    from services.profile import initialize_profile
 
 
 OPENAPI_TAGS = [
     {"name": "System", "description": "Health and service status endpoints."},
     {"name": "Auth", "description": "Authentication and token issuance."},
-    {"name": "Location", "description": "Endpoints for location-based services."},
     {"name": "Score", "description": "Weather-based activity scores."},
     {"name": "Grade", "description": "Research-backed activity grading."},
     {"name": "Activities", "description": "Historical activity statistics."},
@@ -31,6 +34,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Manage resources shared for the lifetime of the application."""
     await pool.open()
     try:
+        await initialize_profile()
+        await initialize_activity_grades()
         await garmin_pool.open()
         try:
             yield

@@ -24,7 +24,6 @@ for the single configured account. All profile endpoints require authentication.
   Monday–Sunday week containing the browser's local date. It uses the current
   profile threshold and reports scored/excluded activity counts; an empty week
   returns zero. The dashboard displays this total independently of list filters.
-- `GET /activities?activity_type=running&limit=50` returns recent summaries.
 - `GET /activities/{activity_id}/summary` returns only the main statistics for
   one ID, without loading laps or per-sample records.
 - `GET /activities/{activity_id}` returns the same summary fields plus every

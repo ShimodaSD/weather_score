@@ -19,16 +19,21 @@ CREATE_PROFILE = """
 """
 
 
-async def fetch_profile() -> dict[str, object]:
-    """Read the single athlete profile, initializing the default if needed."""
-    async with (
-        pool.connection() as connection,
-        connection.cursor(row_factory=dict_row) as cursor,
-    ):
+async def initialize_profile() -> None:
+    """Create the profile table and default row at application startup."""
+    async with pool.connection() as connection, connection.cursor() as cursor:
         await cursor.execute(CREATE_PROFILE)
         await cursor.execute(
             "INSERT INTO athlete_profile (id) VALUES (1) ON CONFLICT (id) DO NOTHING"
         )
+
+
+async def fetch_profile() -> dict[str, object]:
+    """Read the single athlete profile."""
+    async with (
+        pool.connection() as connection,
+        connection.cursor(row_factory=dict_row) as cursor,
+    ):
         await cursor.execute(
             "SELECT name, threshold_heart_rate_bpm FROM athlete_profile WHERE id = 1"
         )
@@ -41,7 +46,6 @@ async def save_profile(name: str, threshold_heart_rate_bpm: int) -> dict[str, ob
         pool.connection() as connection,
         connection.cursor(row_factory=dict_row) as cursor,
     ):
-        await cursor.execute(CREATE_PROFILE)
         await cursor.execute(
             """
             INSERT INTO athlete_profile (id, name, threshold_heart_rate_bpm)

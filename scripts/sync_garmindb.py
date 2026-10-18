@@ -108,8 +108,16 @@ def _bootstrap_database(target: Path, source: Path | None) -> None:
         source_db.backup(target_db)
 
 
-def _run_garmindb(working_directory: Path, arguments: list[str]) -> None:
-    command = ["garmindb_cli.py", *arguments]
+def _run_garmindb(
+    working_directory: Path,
+    arguments: list[str],
+    normalize_activity_ids: bool = False,
+) -> None:
+    command = (
+        [sys.executable, "-u", str(Path(__file__).with_name("import_garmindb.py"))]
+        if normalize_activity_ids
+        else ["garmindb_cli.py"]
+    ) + arguments
     markers = (
         "failed to login",
         "failed to download",
@@ -228,7 +236,7 @@ def _import_postgres(
             "--import",
             *([] if full_import else ["--latest"]),
         ]
-        _run_garmindb(working_directory, arguments)
+        _run_garmindb(working_directory, arguments, normalize_activity_ids=True)
 
     try:
         with psycopg.connect(**_get_postgres_parameters(database_name)) as connection:

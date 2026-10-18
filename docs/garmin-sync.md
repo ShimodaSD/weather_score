@@ -88,6 +88,13 @@ processes all local files; later runs import only files from the latest overlap.
 After import, the command copies activity names from SQLite into PostgreSQL to
 work around GarminDB 3.9 passing numeric JSON IDs to its text primary key.
 
+PostgreSQL imports run through `scripts/import_garmindb.py`, which normalizes
+JSON activity IDs to strings before GarminDB looks up or updates activity rows.
+This avoids PostgreSQL's `character varying = bigint` error without casting
+indexed database columns or rewriting downloaded files. The compatibility fix
+targets GarminDB 3.9's shared JSON activity processor; review it when upgrading
+GarminDB. FIT import and the SQLite sync keep their original behavior.
+
 Immediately after the name update, the same sync creates the nullable
 `garmin_activities.activities.tss` column if needed and recalculates **all**
 activities, including older activities and those without names. It reuses the

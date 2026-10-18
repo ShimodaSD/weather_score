@@ -372,3 +372,27 @@ export async function fetchRunGrade(baseUrl: string, address: string, pace: stri
   }
   return data as RunGrade
 }
+
+export async function fetchRunScore(baseUrl: string, address: string, location?: LocationOption): Promise<number | LocationOption[]> {
+  if (!address.trim()) throw new Error('Enter a town, suburb, or address.')
+  const query = new URLSearchParams({ address: address.trim() })
+  if (location) {
+    query.set('latitude', location.latitude)
+    query.set('longitude', location.longitude)
+  }
+  let response: Response
+  try {
+    response = await fetch(`${base(baseUrl)}/score/run?${query}`, { signal: AbortSignal.timeout(30_000) })
+  } catch {
+    throw new Error('We couldn’t reach the weather service. Please try again.')
+  }
+  if (response.status === 422) throw new Error('Check your address, then try again.')
+  if (!response.ok) throw new Error('Conditions are unavailable right now. Please try again shortly.')
+  const data: unknown = await response.json().catch(() => null)
+  if (typeof data === 'number' && Number.isFinite(data) && data >= 0 && data <= 100) return data
+  if (isRecord(data) && typeof data.error === 'string') throw new Error('We couldn’t find conditions for that address. Try a nearby town or a more specific address.')
+  if (isRecord(data) && Array.isArray(data.options) && data.options.length > 0
+    && data.options.every((option): option is LocationOption => isRecord(option)
+      && typeof option.name === 'string' && typeof option.latitude === 'string' && typeof option.longitude === 'string')) return data.options
+  throw new Error('The service returned an unexpected response. Please try again later.')
+}
