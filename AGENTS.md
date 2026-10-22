@@ -221,3 +221,17 @@ weekly sport bars use solid/striped patterns as well as colors.
 `GET /activities/index` includes nullable `distance_km` for the dashboard's
 current Monday–Sunday running + cycling distance card. Other sports are excluded; missing
 distances are counted and disclosed. The lightweight query still avoids joins.
+
+## Review guidelines
+
+For GitHub pull-request reviews, evaluate new and changed code for performance
+as well as correctness:
+
+- Check unnecessary API calls, repeated database queries, missing query bounds,
+  redundant React rendering, inefficient loops, and avoidable memory use.
+- Prefer the simplest efficient implementation that preserves validation,
+  error handling, security, and accessibility.
+- Measure meaningful bottlenecks when practical. Identify the affected workload
+  and user impact; distinguish measured results from suspected risks.
+- Do not claim an implementation is the fastest without benchmark evidence.
+  Avoid speculative optimizations and dependencies without a demonstrated need.
