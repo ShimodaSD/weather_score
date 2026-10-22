@@ -1,3 +1,4 @@
+import GarminSyncProgress, { useGarminSyncProgress } from './GarminSyncProgress'
 import { useEffect, useState, type FormEvent } from 'react'
 import { SESSION_AUTH, fetchAccessToken, fetchActivityIndex, fetchActivitySummary, fetchActivityGrades, startActivityGrade, syncGarminActivities, type Activity, type ActivityIndex, type ActivityGrade } from './api'
 import ActivityTssPanel from './ActivityTssPanel'
@@ -42,6 +43,8 @@ export default function Activities({ token, onTokenChange }: { token: string; on
   const [startingGradeId, setStartingGradeId] = useState('')
   const [gradeStartError, setGradeStartError] = useState<{ id: string; message: string } | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const syncProgress = useGarminSyncProgress(apiBase, token, syncing)
+  const syncActive = syncing || syncProgress.active
   const [syncMessage, setSyncMessage] = useState('')
   const [syncError, setSyncError] = useState('')
 
@@ -83,7 +86,7 @@ export default function Activities({ token, onTokenChange }: { token: string; on
   }
 
   async function syncGarmin() {
-    if (syncing) return
+    if (syncActive) return
     setSyncing(true)
     setSyncMessage('')
     setSyncError('')
@@ -182,8 +185,8 @@ export default function Activities({ token, onTokenChange }: { token: string; on
   const selectedGrade = selected ? gradesByActivity.get(selected.activity_id) : undefined
 
   return <main id="main" className="activity-dashboard">
-    <div className="dashboard-heading"><div><span className="eyebrow">YOUR MOVEMENT, AT A GLANCE</span><h1>Activity dashboard<span className="brand-dot">.</span></h1><p>Explore your recorded activities and the numbers behind each one.</p></div>{token && <button className="garmin-sync" type="button" disabled={syncing} onClick={() => { void syncGarmin() }}>{syncing ? 'Syncing…' : 'Get new data'}</button>}</div>
-    {token && syncing && <div className="activity-sync-progress" role="status" aria-live="polite" aria-atomic="true"><span className="activity-sync-spinner" aria-hidden="true" /><div><strong>Updating your Garmin activities</strong><p>Importing the latest data and refreshing your TSS. This may take a few minutes.</p></div></div>}
+    <div className="dashboard-heading"><div><span className="eyebrow">YOUR MOVEMENT, AT A GLANCE</span><h1>Activity dashboard<span className="brand-dot">.</span></h1><p>Explore your recorded activities and the numbers behind each one.</p></div>{token && <button className="garmin-sync" type="button" disabled={syncActive} onClick={() => { void syncGarmin() }}>{syncActive ? 'Syncing…' : 'Get new data'}</button>}</div>
+    {token && <GarminSyncProgress {...syncProgress} syncing={syncing} />}
     {token && syncMessage && <p className="garmin-sync-message" role="status">{syncMessage}</p>}
     {token && syncError && <p className="error-message" role="alert">{syncError}</p>}
     {!token ? <section className="dashboard-login" aria-labelledby="activities-signin"><div><span className="eyebrow">WELCOME BACK</span><h2 id="activities-signin">See your activities</h2><p>Sign in to view the activities saved to your account.</p></div><form onSubmit={signIn}><label htmlFor="activity-username">Username</label><input id="activity-username" className="text-field" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={loading} /><label htmlFor="activity-password">Password</label><input id="activity-password" className="text-field" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={loading} /><button className="submit" disabled={loading}>{loading ? 'Signing in…' : 'Sign in and view activities'}</button>{error && <p className="error-message" role="alert">{error}</p>}</form></section> : <>

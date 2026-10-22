@@ -142,6 +142,13 @@ the frontend `pnpm test` command.
 Dashboard sync and grade interactions are checked by
 `apps/web/tests/activities.browser.cjs`; see `apps/web/README.md` for the
 development-server and existing Playwright requirements.
+Both **Get new data** buttons poll protected `GET /activities/sync/status`
+on page entry and every 30 seconds for live downloaded/total file counts and
+the download/import phase, including syncs already running after navigation. Progress
+comes from `scripts/download_garmindb.py` and stays in the single API process.
+Coverage is in `tests/test_download_garmindb.py`, `tests/api/test_garmin.py`,
+the activity API/client tests, and the browser sync check. See
+`docs/garmin-sync.md` for file-count semantics and GarminDB compatibility.
 Activity details include a TSS calculator using protected
 `GET /activities/{id}/tss` and `src/weather_score/application/training_stress.py`.
 TSS is training load and may exceed 100; the 0–100 rule applies to weather

@@ -116,7 +116,7 @@ def _run_garmindb(
     command = (
         [sys.executable, "-u", str(Path(__file__).with_name("import_garmindb.py"))]
         if normalize_activity_ids
-        else ["garmindb_cli.py"]
+        else [sys.executable, "-u", str(Path(__file__).with_name("download_garmindb.py"))]
     ) + arguments
     markers = (
         "failed to login",
@@ -137,7 +137,7 @@ def _run_garmindb(
     upstream_failed = False
     assert process.stdout is not None
     for line in process.stdout:
-        print(line, end="")
+        print(line, end="", flush=True)
         upstream_failed |= any(marker in line.casefold() for marker in markers)
     if process.wait() != 0 or upstream_failed:
         _fail_sync("GarminDB operation failed; see the output above")

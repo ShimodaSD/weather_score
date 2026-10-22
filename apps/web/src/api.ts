@@ -196,6 +196,22 @@ export async function syncGarminActivities(baseUrl: string, token: string): Prom
   return data as GarminSyncResult
 }
 
+export type GarminSyncProgress = {
+  phase: 'idle' | 'checking' | 'downloading' | 'importing' | 'complete' | 'failed'
+  downloaded_files: number
+  total_files: number | null
+}
+
+export async function fetchGarminSyncProgress(baseUrl: string, token: string): Promise<GarminSyncProgress> {
+  const data = await fetchActivityJson(baseUrl, '/activities/sync/status', token)
+  if (!isRecord(data) || !['idle', 'checking', 'downloading', 'importing', 'complete', 'failed'].includes(String(data.phase))
+    || !Number.isSafeInteger(data.downloaded_files) || (data.downloaded_files as number) < 0
+    || data.total_files !== null && (!Number.isSafeInteger(data.total_files) || (data.total_files as number) < (data.downloaded_files as number))) {
+    throw new Error('The service returned unexpected Garmin download progress.')
+  }
+  return data as GarminSyncProgress
+}
+
 export async function startActivityGrade(baseUrl: string, id: string, token: string): Promise<ActivityGrade> {
   const data = await fetchActivityJson(baseUrl, `/activities/${encodeURIComponent(id)}/grade`, token, 'POST')
   if (!isActivityGrade(data)) throw new Error('The service returned an unexpected grade response.')

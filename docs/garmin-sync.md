@@ -36,6 +36,29 @@ download or import. Activity lists are empty until the first sync completes.
 Run the explicit sync command above, or use **Get new data**, to populate or
 refresh data after startup. See [PostgreSQL schema](postgres-schema.md).
 
+### Download progress
+
+**Get new data** shows a live file counter and remaining files on Activities and
+Grades. While Garmin is logging in and listing activities, it shows “Checking
+Garmin for new data”; the total is unknown until that list arrives. The counter
+includes missing activity summary JSON, detail JSON and downloaded ZIP archives
+for this sync's configured activity window. Existing files that GarminDB skips
+are excluded. A ZIP counts as one transfer, regardless of extracted FIT files.
+This is a file count, not a byte count or a count of all history on Garmin.
+
+After transfers and extraction finish, the display changes to importing.
+The final activity count appears after the PostgreSQL import and TSS update.
+Failed transfers do not advance the counter. Failed progress requests display
+an unavailable message while the sync request continues.
+
+The protected `GET /activities/sync/status` endpoint returns `phase`,
+`downloaded_files`, and nullable `total_files`; both pages query immediately, then every 30 seconds
+while authenticated, including on page entry. An active sync is restored after
+a refresh or navigation, and disables duplicate sync requests. The existing POST response is unchanged.
+Progress and the sync lock belong to the single API process used by Compose;
+multiple API workers would require shared job state. The downloader instrumentation
+targets the pinned GarminDB 3.9 implementation and must be reviewed on upgrades.
+
 ## Running without Docker
 
 The project keeps Garmin credentials and session files in GarminDB's standard

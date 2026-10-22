@@ -42,6 +42,7 @@ ACTIVITY = {
 
 
 def test_activities_require_bearer_token():
+    assert client.get("/activities/sync/status").status_code == 401
     response = client.get("/activities/index")
 
     assert response.status_code == 401
@@ -279,6 +280,18 @@ def test_activity_tss_missing_activity_or_data(monkeypatch, activity, status):
         headers={"Authorization": "Bearer token"},
     )
     assert response.status_code == status
+
+
+def test_sync_status_reports_only_counters(monkeypatch):
+    from apps.api.schemas.activity import GarminSyncProgress
+
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    monkeypatch.setattr(garmin, "get_sync_progress", lambda: GarminSyncProgress(
+        phase="downloading", downloaded_files=2, total_files=6,
+    ))
+    response = client.get("/activities/sync/status", headers={"Authorization": "Bearer token"})
+    assert response.status_code == 200
+    assert response.json() == {"phase": "downloading", "downloaded_files": 2, "total_files": 6}
 
 
 def test_syncs_and_reports_new_garmin_activities(monkeypatch):

@@ -5,7 +5,7 @@ async function main() {
   const browser = await chromium.launch({ headless: true })
   try {
     const page = await browser.newPage()
-    await page.clock.setFixedTime(new Date('2026-09-24T12:00:00'))
+    await page.clock.install({ time: new Date('2026-09-24T12:00:00') })
     const activity = { activity_id: '1', name: 'Morning run', activity_type: 'running', started_at: '2026-09-24T06:00:00', elapsed_seconds: 3600 }
     for (const key of ['moving_seconds', 'distance_km', 'average_pace_seconds_per_km', 'average_speed_kph', 'average_heart_rate_bpm', 'maximum_heart_rate_bpm', 'calories', 'average_cadence_per_minute', 'elevation_gain_m', 'elevation_loss_m', 'average_temperature_c', 'training_effect', 'anaerobic_training_effect']) activity[key] = null
     let listSize = 1
@@ -21,15 +21,23 @@ async function main() {
     let releaseGrade
     let failGrades = false
     let releaseSync
+    let progressRequests = 0
+    let downloadProgress = { phase: 'downloading', downloaded_files: 2, total_files: 6 }
     await page.route('**/api/**', async (route) => {
       const path = new URL(route.request().url()).pathname
       let data
       if (path.endsWith('/session')) data = { authenticated: true }
+      else if (path.endsWith('/activities/sync/status')) { progressRequests++; data = downloadProgress }
       else if (path.endsWith('/activities/sync')) {
         assert.equal(route.request().method(), 'POST')
         syncs++
-        if (syncs > 1) return route.fulfill({ status: 503, json: { detail: 'Sync failed' } })
+        downloadProgress = { phase: 'downloading', downloaded_files: 2, total_files: 6 }
+        if (syncs > 1) {
+          downloadProgress = { phase: 'failed', downloaded_files: 0, total_files: null }
+          return route.fulfill({ status: 503, json: { detail: 'Sync failed' } })
+        }
         await new Promise((resolve) => { releaseSync = resolve })
+        downloadProgress = { phase: 'complete', downloaded_files: 6, total_files: 6 }
         data = { new_activities: 1, total_activities: 2 }
       } else if (path.endsWith('/activities/index')) {
         indexes++
@@ -70,6 +78,19 @@ async function main() {
       await route.fulfill({ json: data })
     })
     await page.goto(`${process.env.WEB_URL || 'http://localhost:8001'}/#activities`)
+    await page.getByText('2 of 6 files downloaded · 4 remaining', { exact: true }).waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Syncing…' }).isDisabled(), true)
+    assert.equal(await page.getByRole('progressbar', { name: 'Garmin files downloaded' }).getAttribute('value'), '2')
+    await page.reload()
+    await page.getByText('2 of 6 files downloaded · 4 remaining', { exact: true }).waitFor()
+    await page.getByRole('link', { name: 'Route grades', exact: true }).click()
+    await page.getByText('2 of 6 files downloaded · 4 remaining', { exact: true }).waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Syncing…' }).isDisabled(), true)
+    assert.equal(syncs, 0)
+    downloadProgress = { phase: 'complete', downloaded_files: 6, total_files: 6 }
+    await page.getByRole('link', { name: 'Activities', exact: true }).click()
+    await page.getByRole('button', { name: 'Get new data' }).waitFor()
+    assert.equal(await page.getByRole('progressbar', { name: 'Garmin files downloaded' }).count(), 0)
     const grade = page.getByRole('region', { name: 'Activity grade', exact: true })
     await grade.getByText('Grade: processing…', { exact: true }).waitFor()
     processing = false
@@ -78,15 +99,30 @@ async function main() {
     assert.equal(await page.getByRole('link', { name: 'Edit your threshold in Profile' }).count(), 0)
     await page.locator('.activity-row').getByText('Grade: 87 / 100').waitFor()
     const before = { weeks, trainingWeeks, indexes, summaries, grades }
+    await page.setViewportSize({ width: 375, height: 900 })
+    await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth)
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
     await page.getByRole('button', { name: 'Get new data' }).click()
     assert.equal(await page.getByRole('button', { name: 'Syncing…' }).isDisabled(), true)
     const progress = page.getByRole('status').filter({ hasText: 'Updating your Garmin activities' })
     assert.equal(await progress.isVisible(), true)
-    await page.setViewportSize({ width: 375, height: 900 })
-    await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth)
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     assert.equal(await page.locator('.activity-sync-spinner').evaluate((element) => getComputedStyle(element).animationName), 'none')
     assert.equal(syncs, 1)
+    await page.getByText('2 of 6 files downloaded · 4 remaining', { exact: true }).waitFor()
+    const fileProgress = page.getByRole('progressbar', { name: 'Garmin files downloaded' })
+    assert.equal(await fileProgress.getAttribute('value'), '2')
+    assert.equal(await fileProgress.getAttribute('max'), '6')
+    downloadProgress = { phase: 'importing', downloaded_files: 6, total_files: 6 }
+    const initialProgressRequests = progressRequests
+    await page.clock.fastForward(29_000)
+    assert.equal(progressRequests, initialProgressRequests)
+    await page.clock.fastForward(1000)
+    await page.getByText('6 files downloaded. Importing activities…', { exact: true }).waitFor()
+    assert.equal(await fileProgress.getAttribute('value'), null)
+    assert.equal(progressRequests, initialProgressRequests + 1)
+    await page.clock.resume()
     releaseSync()
     await page.getByText('1 new Garmin activity imported.', { exact: true }).waitFor()
     assert.equal(await progress.count(), 0)

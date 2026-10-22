@@ -6,6 +6,14 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class GarminSyncProgress(BaseModel):
+    """File transfer progress for the current process's Garmin sync."""
+
+    phase: Literal["idle", "checking", "downloading", "importing", "complete", "failed"] = "idle"
+    downloaded_files: int = Field(default=0, ge=0)
+    total_files: int | None = Field(default=None, ge=0)
+
+
 class ActivityIndexResponse(BaseModel):
     """Lightweight activity entry for dashboard navigation."""
 

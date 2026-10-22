@@ -22,6 +22,7 @@ try:
         ActivityIndexResponse,
         ActivityResponse,
         ActivityTssResponse,
+        GarminSyncProgress,
         RunningPredictionsResponse,
         WeeklyTrainingResponse,
         WeeklyTssResponse,
@@ -33,7 +34,7 @@ try:
         process_activity_grade,
         queue_activity_grade,
     )
-    from ..services.garmin import run_garmindb_sync
+    from ..services.garmin import get_sync_progress, run_garmindb_sync
     from ..services.profile import fetch_profile
     from .connections.database import garmin_pool
 except ImportError:
@@ -43,6 +44,7 @@ except ImportError:
         ActivityIndexResponse,
         ActivityResponse,
         ActivityTssResponse,
+        GarminSyncProgress,
         RunningPredictionsResponse,
         WeeklyTrainingResponse,
         WeeklyTssResponse,
@@ -54,7 +56,7 @@ except ImportError:
         process_activity_grade,
         queue_activity_grade,
     )
-    from services.garmin import run_garmindb_sync
+    from services.garmin import get_sync_progress, run_garmindb_sync
     from services.profile import fetch_profile
 
 
@@ -284,6 +286,12 @@ async def list_activity_index() -> list[dict[str, object]]:
 async def list_activity_grades() -> list[dict[str, object]]:
     """List completed and in-progress Garmin route grades."""
     return await fetch_activity_grades()
+
+
+@router.get("/sync/status", response_model=GarminSyncProgress)
+async def get_garmin_sync_status() -> GarminSyncProgress:
+    """Report live file progress for the authenticated sync action."""
+    return get_sync_progress()
 
 
 @router.post(
