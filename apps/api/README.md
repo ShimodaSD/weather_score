@@ -23,6 +23,12 @@ Dependency layers and the uv download/build cache are reused across source edits
 Startup uses that installed environment without syncing packages; rebuild the
 backend image after changing `pyproject.toml` or `uv.lock`.
 
+Compose creates application and Garmin tables from schema-only SQL snapshots
+before starting Uvicorn. Startup does not download or import Garmin data.
+Run `make postgres-init` from the repository root to create the tables manually.
+Existing tables and data are preserved. See [PostgreSQL schema](../../docs/postgres-schema.md)
+and [Garmin setup](../../docs/garmin-sync.md).
+
 API startup initializes the athlete profile and upgrades activity-grade storage
 once per process. Requests no longer run these schema and data setup statements.
 

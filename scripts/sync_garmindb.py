@@ -357,10 +357,8 @@ def main() -> None:
             )
         )
         if not config_path.is_file():
-            print(
-                f"garmin-sync: startup import skipped; GarminDB config is missing: {config_path}"
-            )
-            return
+            _fail_sync(f"startup import requires GarminDB config: {config_path}")
+        print("garmin-sync: initializing GarminDB before API startup", flush=True)
     configured_target = os.environ.get("GARMINDB_PATH")
     if not configured_target:
         _fail_sync("set GARMINDB_PATH to garmin_activities.db")
