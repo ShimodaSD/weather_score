@@ -1,26 +1,31 @@
 
-name: Trigger OpenBot
+name: Sync Codex Reviews to OpenBot
 
 on:
   pull_request_review:
     types: [submitted]
+  pull_request_review_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
 
 jobs:
   notify-openbot:
-    if: github.event.review.user.login == 'chatgpt-codex-connector'
+    if: github.event.sender.login == 'chatgpt-codex-connector[bot]'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Trigger OpenBot routine
+      - name: Checkout trusted repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Notify OpenBot
         env:
-          WEBHOOK_URL: ${{ secrets.OPENBOT_WEBHOOK_URL }}
-          WEBHOOK_SECRET: ${{ secrets.OPENBOT_WEBHOOK_SECRET }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
+          OPENBOT_WEBHOOK_URL: ${{ secrets.OPENBOT_WEBHOOK_URL }}
+          OPENBOT_WEBHOOK_SECRET: ${{ secrets.OPENBOT_WEBHOOK_SECRET }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: |
-          curl --fail-with-body --show-error \
-            --retry 3 \
-            -X POST "$WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d "{\"repository\":\"$REPO\",\"pr_number\":\"$PR_NUMBER\",\"pr_url\":\"$PR_URL\"}"
+          python3 scripts/notify_openbot.py
