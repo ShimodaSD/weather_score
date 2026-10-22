@@ -1,6 +1,8 @@
 # Wind Score web
 
-React and TypeScript, built with Vite. Run from `apps/web`:
+React and TypeScript, built with Vite. Use Node.js 24.22.1 LTS (pinned in the
+repository-root `.nvmrc` and Docker Compose). With nvm, run `nvm install` and
+`nvm use` from the repository root. Run package commands from `apps/web`:
 
 ```bash
 pnpm install
@@ -40,8 +42,9 @@ The Activities tab uses the same browser session to load the lightweight
 `GET /activities/index` list. Selecting an activity loads its summary from
 `GET /activities/{id}/summary`; the full details page at `#activity?aid=...`
 loads laps, splits, recorded samples, and devices from `GET /activities/{id}`.
-Chart.js is loaded only on the full detail page to show heart rate and pace
-from recorded samples on separate axes.
+Chart.js shows weekly sport distances and combined TSS on the dashboard, and
+heart rate and pace on separate axes on the full detail page. The detail chart
+has keyboard-operable series controls and an expandable recorded-value table.
 When signed out, the Activities page shows its own sign-in form.
 The `#predictions` page calls `GET /activities/running/predictions` and shows
 study-modelled 5, 10, 21, and 42 km times or bounded ranges, with links to the
@@ -71,4 +74,5 @@ WEB_URL=http://localhost:8001 node tests/activities.browser.cjs
 
 Set `PLAYWRIGHT_MODULE` to an existing Playwright module path if it is installed
 outside this app. This checks syncing/disabled feedback, refresh, failure,
-grade polling/retry, and mobile/desktop overflow.
+grade polling/retry, mobile/tablet/desktop overflow, skip-link and Profile
+navigation, page titles and focus, and keyboard-operated chart series and data.

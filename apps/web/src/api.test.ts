@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchActivityTss, fetchWeeklyTss, fetchProfile, saveProfile, fetchRunGrade, fetchRunScore, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities } from './api.ts'
+import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchActivityTss, fetchWeeklyTss, fetchWeeklyTraining, fetchProfile, saveProfile, fetchRunGrade, fetchRunScore, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities } from './api.ts'
 
 
 const grade = JSON.parse(readFileSync(new URL('../../../tests/contracts/run_grade.json', import.meta.url), 'utf8'))
@@ -211,4 +211,38 @@ test('Garmin sync uses the protected incremental sync endpoint', async (t) => {
   assert.equal(mock.mock.calls[0].arguments[0], '/api/activities/sync')
   assert.equal(mock.mock.calls[0].arguments[1]?.method, 'POST')
   assert.equal(new Headers(mock.mock.calls[0].arguments[1]?.headers).get('Authorization'), 'Bearer token')
+})
+
+
+test('weekly training validates distances and sends the local date with auth', async (t) => {
+  const week = { week_start: '2026-09-21', week_end: '2026-09-27', tss: 80, threshold_heart_rate_bpm: 157, scored_activity_count: 2, excluded_activity_count: 0, running_km: 5, cycling_km: 25 }
+  const weeks = Array.from({ length: 12 }, () => ({ ...week }))
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(weeks)))
+  assert.deepEqual(await fetchWeeklyTraining('/api', 'token', new Date(2026, 8, 24)), weeks)
+  assert.equal(mock.mock.calls[0].arguments[0], '/api/activities/training/weekly?week_of=2026-09-24')
+  assert.equal(new Headers(mock.mock.calls[0].arguments[1]?.headers).get('Authorization'), 'Bearer token')
+  for (const invalid of [[], weeks.map((week) => ({ ...week, running_km: -1 })), weeks.map((week) => ({ ...week, cycling_km: '25' })), weeks.map((week) => ({ ...week, tss: -1 }))]) {
+    mock.mock.mockImplementation(async () => new Response(JSON.stringify(invalid)))
+    await assert.rejects(fetchWeeklyTraining('/api', 'token'), /unexpected weekly training/)
+  }
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify(weeks.map((week) => ({ ...week, running_km: null, tss: null })))))
+  assert.equal((await fetchWeeklyTraining('/api', 'token'))[0].running_km, null)
+})
+
+
+test('activity requests display first-import setup guidance', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ detail: 'Garmin activity data is not initialized. Use Get new data to run the first import.' }), { status: 503 }))
+  await assert.rejects(fetchActivityIndex('/api', 'token'), /Use Get new data/)
+  await assert.rejects(fetchWeeklyTraining('/api', 'token'), /Use Get new data/)
+})
+
+
+test('activity index accepts recorded distances and rejects invalid distances', async (t) => {
+  const item = { activity_id: '1', activity_type: 'running', name: null, started_at: '2026-09-11T06:30:00Z', distance_km: 5.5 }
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify([item])))
+  assert.equal((await fetchActivityIndex('/api', 'token'))[0].distance_km, 5.5)
+  for (const distance_km of [-1, '5', false]) {
+    mock.mock.mockImplementation(async () => new Response(JSON.stringify([{ ...item, distance_km }])))
+    await assert.rejects(fetchActivityIndex('/api', 'token'), /unexpected activity response/)
+  }
 })

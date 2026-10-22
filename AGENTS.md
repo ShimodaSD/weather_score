@@ -202,3 +202,22 @@ Update this guide when shared schemas, tests, or build commands are added.
 A change is complete when it is placed in the correct app layer, preserves
 the API/security contract, has tests for changed behavior, does not expose
 secrets, and has been checked with the relevant backend or frontend tooling.
+
+The Activities dashboard charts twelve Monday–Sunday weeks using protected
+`GET /activities/training/weekly?week_of=YYYY-MM-DD`. Running and cycling kilometres
+are separate; TSS combines available estimates using the saved profile threshold.
+Empty weeks are zero; missing or invalid distances are null, and excluded TSS
+activities are counted. Aggregation lives in
+`src/weather_score/application/weekly_training.py`, covered by
+`tests/scores/test_weekly_training.py`, `tests/api/test_activities.py`, and the
+frontend client tests. The chart includes an expandable data table.
+
+UI/UX regression coverage in `apps/web/tests/activities.browser.cjs` includes
+skip-link routing, Profile navigation, route titles/focus, responsive overflow,
+and keyboard chart controls/data. Run with the existing Playwright setup from
+`apps/web/README.md`. The full-detail chart exposes a recorded-value table;
+weekly sport bars use solid/striped patterns as well as colors.
+
+`GET /activities/index` includes nullable `distance_km` for the dashboard's
+current Monday–Sunday running + cycling distance card. Other sports are excluded; missing
+distances are counted and disclosed. The lightweight query still avoids joins.

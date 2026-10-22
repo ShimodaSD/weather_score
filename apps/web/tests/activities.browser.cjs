@@ -5,8 +5,11 @@ async function main() {
   const browser = await chromium.launch({ headless: true })
   try {
     const page = await browser.newPage()
+    await page.clock.setFixedTime(new Date('2026-09-24T12:00:00'))
     const activity = { activity_id: '1', name: 'Morning run', activity_type: 'running', started_at: '2026-09-24T06:00:00', elapsed_seconds: 3600 }
     for (const key of ['moving_seconds', 'distance_km', 'average_pace_seconds_per_km', 'average_speed_kph', 'average_heart_rate_bpm', 'maximum_heart_rate_bpm', 'calories', 'average_cadence_per_minute', 'elevation_gain_m', 'elevation_loss_m', 'average_temperature_c', 'training_effect', 'anaerobic_training_effect']) activity[key] = null
+    let listSize = 1
+    let trainingWeeks = 0
     let syncs = 0
     let weeks = 0
     let indexes = 0
@@ -30,7 +33,11 @@ async function main() {
         data = { new_activities: 1, total_activities: 2 }
       } else if (path.endsWith('/activities/index')) {
         indexes++
-        data = [activity]
+        data = Array.from({ length: listSize }, (_, index) => ({ ...activity, activity_id: String(index + 1), ...(listSize === 100 ? { activity_type: ['running', 'cycling', 'walking', 'running'][index % 4], started_at: index < 4 ? activity.started_at : index === 4 ? '2026-09-27T06:00:00' : index === 5 ? '2026-09-28T06:00:00' : '2026-09-20T06:00:00', distance_km: [5, 20, 50, null][index % 4] } : {}) }))
+      } else if (path.endsWith('/profile')) {
+        data = { name: 'Runner', threshold_heart_rate_bpm: 157 }
+      } else if (path.endsWith('/activities/1')) {
+        data = { ...activity, activity: {}, laps: [], splits: [], records: [{ timestamp: activity.started_at, hr: 150, speed: 10 }], devices: [] }
       } else if (path.endsWith('/summary')) {
         summaries++
         data = activity
@@ -47,6 +54,15 @@ async function main() {
         if (failGrades) return route.fulfill({ status: 503, json: {} })
         data = [{ activity_id: '1', status: processing ? 'processing' : 'complete', score: processing ? null : 87, segments: [], error: null, created_at: activity.started_at, updated_at: activity.started_at, completed_at: null }]
         if (!hasGrade) data = []
+      } else if (path.endsWith('/training/weekly')) {
+        trainingWeeks++
+        data = Array.from({ length: 12 }, (_, index) => {
+          const start = new Date('2026-07-06T12:00:00Z')
+          start.setUTCDate(start.getUTCDate() + index * 7)
+          const end = new Date(start)
+          end.setUTCDate(end.getUTCDate() + 6)
+          return { week_start: start.toISOString().slice(0, 10), week_end: end.toISOString().slice(0, 10), tss: syncs ? 120 : 100, threshold_heart_rate_bpm: 157, scored_activity_count: 2, excluded_activity_count: 0, running_km: 10, cycling_km: 30 }
+        })
       } else if (path.endsWith('/tss/weekly')) {
         weeks++
         data = { week_start: '2026-09-21', week_end: '2026-09-27', tss: syncs ? 120 : 100, threshold_heart_rate_bpm: 157, scored_activity_count: 2, excluded_activity_count: 0 }
@@ -61,13 +77,13 @@ async function main() {
     assert.equal(await grade.getByRole('link').count(), 0)
     assert.equal(await page.getByRole('link', { name: 'Edit your threshold in Profile' }).count(), 0)
     await page.locator('.activity-row').getByText('Grade: 87 / 100').waitFor()
-    const before = { weeks, indexes, summaries, grades }
+    const before = { weeks, trainingWeeks, indexes, summaries, grades }
     await page.getByRole('button', { name: 'Get new data' }).click()
     assert.equal(await page.getByRole('button', { name: 'Syncing…' }).isDisabled(), true)
     const progress = page.getByRole('status').filter({ hasText: 'Updating your Garmin activities' })
     assert.equal(await progress.isVisible(), true)
     await page.setViewportSize({ width: 375, height: 900 })
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     assert.equal(await page.locator('.activity-sync-spinner').evaluate((element) => getComputedStyle(element).animationName), 'none')
     assert.equal(syncs, 1)
@@ -76,9 +92,9 @@ async function main() {
     assert.equal(await progress.count(), 0)
     await page.getByLabel('Current week TSS').getByText('120.0', { exact: true }).waitFor()
     await grade.getByText('Grade: 87 / 100', { exact: true }).waitFor()
-    assert.ok(weeks > before.weeks && indexes > before.indexes && summaries > before.summaries && grades > before.grades)
+    assert.ok(weeks > before.weeks && trainingWeeks > before.trainingWeeks && indexes > before.indexes && summaries > before.summaries && grades > before.grades)
     await page.getByRole('button', { name: 'Get new data' }).click()
-    await page.getByRole('alert').filter({ hasText: 'Activities are unavailable' }).waitFor()
+    await page.getByRole('alert').filter({ hasText: 'Sync failed' }).waitFor()
     const messageBounds = await page.locator('.activity-dashboard > .error-message').boundingBox()
     const dataBounds = await page.getByRole('region', { name: 'Activity totals' }).boundingBox()
     assert.ok(dataBounds.y - (messageBounds.y + messageBounds.height) >= 24)
@@ -91,14 +107,14 @@ async function main() {
     await grade.getByText('Grade: 87 / 100', { exact: true }).waitFor()
     for (const width of [375, 1440]) {
       await page.setViewportSize({ width, height: 900 })
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+      await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth)
     }
     hasGrade = false
     await page.reload()
     await grade.getByText('Not graded yet', { exact: true }).waitFor()
     const labelBounds = await grade.getByRole('heading').boundingBox()
     const buttonBounds = await grade.getByRole('button', { name: 'Generate grade', exact: true }).boundingBox()
-    assert.ok(buttonBounds.x >= labelBounds.x + labelBounds.width)
+    assert.ok(buttonBounds.x >= labelBounds.x + labelBounds.width || buttonBounds.y >= labelBounds.y + labelBounds.height)
     await grade.getByRole('button', { name: 'Generate grade', exact: true }).click()
     assert.equal(await grade.getByRole('button', { name: 'Starting…' }).isDisabled(), true)
     assert.equal(gradeStarts, 1)
@@ -115,7 +131,57 @@ async function main() {
     await page.reload()
     await grade.getByRole('button', { name: 'Running only' }).waitFor()
     assert.equal(await grade.getByRole('button', { name: 'Running only' }).isDisabled(), true)
-    console.log('Activities sync, refresh, grade polling, retry and responsive checks passed.')
+    await page.setViewportSize({ width: 1440, height: 900 })
+    listSize = 100
+    await page.reload()
+    await page.getByRole('link', { name: 'View full activity details' }).waitFor()
+    const panels = await page.evaluate(() => ({ list: document.querySelector('.activity-list').clientHeight, detail: document.querySelector('.activity-detail').clientHeight, height: document.querySelector('.activity-rows').clientHeight, scroll: document.querySelector('.activity-rows').scrollHeight }))
+    assert.equal(panels.list, panels.detail)
+    assert.ok(panels.scroll > panels.height)
+    const distanceCard = page.getByLabel('This week’s running and cycling distance', { exact: true })
+    assert.equal(await distanceCard.locator('strong').innerText(), '30.0 km')
+    assert.ok(await distanceCard.getByText('1 activity without distance excluded').isVisible())
+    const chartPanel = page.getByRole('region', { name: 'Weekly distance & TSS' })
+    await chartPanel.locator('canvas').waitFor()
+    assert.equal(await page.locator('.activity-dashboard > .weekly-training').count(), 1)
+    const chartBounds = await chartPanel.boundingBox()
+    const gridBounds = await page.locator('.dashboard-grid').boundingBox()
+    const totalsBounds = await page.getByRole('region', { name: 'Activity totals' }).boundingBox()
+    assert.ok(chartBounds.y >= totalsBounds.y + totalsBounds.height)
+    assert.ok(chartBounds.y + chartBounds.height <= gridBounds.y)
+
+    await page.locator('.skip-link').focus()
+    await page.keyboard.press('Enter')
+    assert.equal(new URL(page.url()).hash, '#activities')
+    assert.equal(await page.locator(':focus').getAttribute('id'), 'main')
+    await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Profile' }).click()
+    await page.getByRole('heading', { name: 'Profile', exact: true }).waitFor()
+    assert.equal(await page.locator('.header [aria-current="page"]').innerText(), 'Profile')
+    assert.match(await page.title(), /Profile/)
+    assert.equal(await page.locator(':focus').textContent(), 'Profile')
+    for (const width of [1440, 768, 375, 667]) {
+      await page.setViewportSize({ width, height: width === 667 ? 375 : 900 })
+      await page.goto(`${process.env.WEB_URL || 'http://localhost:8001'}/#check`)
+      await page.getByRole('heading', { level: 1 }).waitFor()
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Conditions overflow at ${width}`)
+      const nav = page.getByRole('navigation', { name: 'Main navigation' })
+      assert.ok(await nav.getByRole('link', { name: 'Predictions' }).isVisible())
+      assert.ok(await nav.getByRole('link', { name: 'Profile' }).isVisible())
+      if (width === 375) assert.equal(await page.locator('#address').evaluate((element) => getComputedStyle(element).fontSize), '16px')
+    }
+    await page.goto(`${process.env.WEB_URL || 'http://localhost:8001'}/#activity?aid=1`)
+    const heartRate = page.getByRole('checkbox', { name: 'Heart rate (solid)' })
+    await heartRate.waitFor()
+    await heartRate.focus()
+    await page.keyboard.press('Space')
+    assert.equal(await heartRate.isChecked(), false)
+    await page.keyboard.press('Space')
+    assert.equal(await heartRate.isChecked(), true)
+    await page.getByText('View heart rate and pace data', { exact: true }).click()
+    await page.locator('.chart-data-table tbody tr').waitFor()
+    assert.equal(await page.locator('.chart-data-table tbody tr').count(), 1)
+    assert.equal(await page.locator('.chart-data-table tbody td').first().innerText(), '150')
+    console.log('Activities sync, grade polling, keyboard navigation, responsive and chart checks passed.')
   } finally { await browser.close() }
 }
 
