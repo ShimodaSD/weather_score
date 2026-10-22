@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { SESSION_AUTH, fetchAccessToken, fetchActivityIndex, fetchActivitySummary, fetchActivityGrades, startActivityGrade, syncGarminActivities, type Activity, type ActivityIndex, type ActivityGrade } from './api'
 import ActivityTssPanel from './ActivityTssPanel'
 import WeeklyTssCard from './WeeklyTssCard'
+import WeeklyTrainingChart from './WeeklyTrainingChart'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
 export const formatNumber = (value: number | null | undefined, unit = '', digits = 0) => value == null ? '—' : `${value.toFixed(digits)}${unit}`
@@ -126,6 +127,17 @@ export default function Activities({ token, onTokenChange }: { token: string; on
   }, [token, onTokenChange, indexRetry])
 
   const sports = [...new Set(activities.map((activity) => activity.activity_type))].sort()
+  const weekStart = new Date()
+  weekStart.setDate(weekStart.getDate() - (weekStart.getDay() + 6) % 7)
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekEnd.getDate() + 7)
+  const calendarDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const distanceActivities = activities.filter((activity) => (activity.activity_type === 'running' || activity.activity_type === 'cycling')
+    && activity.started_at.slice(0, 10) >= calendarDate(weekStart) && activity.started_at.slice(0, 10) < calendarDate(weekEnd))
+  const recordedDistances = distanceActivities.flatMap((activity) => activity.distance_km == null ? [] : [activity.distance_km])
+  const missingDistances = distanceActivities.length - recordedDistances.length
+  const totalDistance = recordedDistances.length || !missingDistances ? recordedDistances.reduce((total, distance) => total + distance, 0) : null
+
   const shown = activities.filter((activity) => (sport === 'All activities' || activity.activity_type === sport)
     && `${activity.name ?? ''} ${activity.activity_type} ${activity.activity_id}`.toLowerCase().includes(search.toLowerCase()))
   const selected = shown.find((activity) => activity.activity_id === selectedId) ?? shown[0]
@@ -175,7 +187,8 @@ export default function Activities({ token, onTokenChange }: { token: string; on
     {token && syncMessage && <p className="garmin-sync-message" role="status">{syncMessage}</p>}
     {token && syncError && <p className="error-message" role="alert">{syncError}</p>}
     {!token ? <section className="dashboard-login" aria-labelledby="activities-signin"><div><span className="eyebrow">WELCOME BACK</span><h2 id="activities-signin">See your activities</h2><p>Sign in to view the activities saved to your account.</p></div><form onSubmit={signIn}><label htmlFor="activity-username">Username</label><input id="activity-username" className="text-field" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={loading} /><label htmlFor="activity-password">Password</label><input id="activity-password" className="text-field" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={loading} /><button className="submit" disabled={loading}>{loading ? 'Signing in…' : 'Sign in and view activities'}</button>{error && <p className="error-message" role="alert">{error}</p>}</form></section> : <>
-      <section className="dashboard-stats dashboard-stats-weekly" aria-label="Activity totals"><div><span>ALL ACTIVITIES</span><strong>{activities.length}</strong><small>Recorded sessions</small></div><div><span>ACTIVITY TYPES</span><strong>{sports.length}</strong><small>Ways you moved</small></div><div><span>MOST RECENT</span><strong className="dashboard-date">{activities[0] ? formatDate(activities[0].started_at) : '—'}</strong><small>Latest recorded activity</small></div><WeeklyTssCard key={indexRetry} token={token} onTokenChange={onTokenChange} /></section>
+      <section className="dashboard-stats dashboard-stats-weekly" aria-label="Activity totals"><div><span>ALL ACTIVITIES</span><strong>{activities.length}</strong><small>Recorded sessions</small></div><div aria-label="This week’s running and cycling distance"><span>THIS WEEK’S DISTANCE</span><strong>{loading ? '…' : error ? '—' : formatNumber(totalDistance, ' km', 1)}</strong><small>Running + cycling · Mon–Sun</small>{!loading && !error && missingDistances > 0 && <small>{missingDistances} {missingDistances === 1 ? 'activity' : 'activities'} without distance excluded</small>}</div><div><span>MOST RECENT</span><strong className="dashboard-date">{activities[0] ? formatDate(activities[0].started_at) : '—'}</strong><small>Latest recorded activity</small></div><WeeklyTssCard key={indexRetry} token={token} onTokenChange={onTokenChange} /></section>
+      <WeeklyTrainingChart key={indexRetry} token={token} onTokenChange={onTokenChange} />
       <div className="dashboard-grid">
         <section className="activity-list" aria-labelledby="activity-list-title">
           <div className="activity-list-head"><div><span className="eyebrow">YOUR LIBRARY</span><h2 id="activity-list-title">All activities</h2></div><span className="list-count">{shown.length} shown</span></div>
@@ -186,6 +199,7 @@ export default function Activities({ token, onTokenChange }: { token: string; on
         </section>
         <section className="activity-detail" aria-labelledby="activity-detail-title">
           {selected ? <>
+            <a className="full-detail-link detail-top-link" href={`#activity?aid=${encodeURIComponent(selected.activity_id)}`}>View full activity details <span aria-hidden="true">→</span></a>
             <div className="detail-top"><span className="eyebrow">ACTIVITY DETAILS</span><span className="detail-type">{selected.activity_type}</span></div>
             <h2 id="activity-detail-title">{selected.name || selected.activity_type}</h2><p className="detail-date">{formatDate(selected.started_at)} · ID {selected.activity_id}</p>
             {summaryError ? <div className="dashboard-retry"><p className="error-message" role="alert">{summaryError}</p><button type="button" onClick={() => setSummaryRetry((count) => count + 1)}>Try again</button></div> : summaryLoading || !detail ? <p className="dashboard-state" role="status">Loading activity summary…</p> : <>
@@ -194,7 +208,6 @@ export default function Activities({ token, onTokenChange }: { token: string; on
               <dl className="detail-metrics" aria-live="polite">{section === 'Overview' ? <><Metric label="Elapsed time" value={formatDuration(detail.elapsed_seconds)} /><Metric label="Moving time" value={formatDuration(detail.moving_seconds)} /><Metric label="Average speed" value={formatNumber(detail.average_speed_kph, ' km/h', 1)} /><Metric label="Average pace" value={formatPace(detail.average_pace_seconds_per_km)} /></> : section === 'Effort' ? <><Metric label="Average heart rate" value={formatNumber(detail.average_heart_rate_bpm, ' bpm')} /><Metric label="Maximum heart rate" value={formatNumber(detail.maximum_heart_rate_bpm, ' bpm')} /><Metric label="Calories" value={formatNumber(detail.calories, ' kcal')} /><Metric label="Average cadence" value={formatNumber(detail.average_cadence_per_minute, ' /min')} /><Metric label="Training effect" value={formatNumber(detail.training_effect, '', 1)} /><Metric label="Anaerobic effect" value={formatNumber(detail.anaerobic_training_effect, '', 1)} /></> : <><Metric label="Elevation gain" value={formatNumber(detail.elevation_gain_m, ' m')} /><Metric label="Elevation loss" value={formatNumber(detail.elevation_loss_m, ' m')} /><Metric label="Average temperature" value={formatNumber(detail.average_temperature_c, ' °C', 1)} /></>}</dl>
               <section className="dashboard-grade" aria-label="Activity grade"><h3>Route weather grade</h3><p role="status">{startingGradeId === detail.activity_id ? 'Starting grade generation…' : gradeLabel(detail)}</p><button className="grade-action" type="button" disabled={detail.activity_type !== 'running' || gradesLoading || Boolean(startingGradeId) || selectedGrade?.status === 'processing'} onClick={() => { void generateGrade(detail) }}>{detail.activity_type !== 'running' ? 'Running only' : startingGradeId === detail.activity_id ? 'Starting…' : selectedGrade?.status === 'processing' ? 'Processing…' : selectedGrade?.status === 'complete' ? 'Regenerate grade' : 'Generate grade'}</button>{gradeStartError?.id === detail.activity_id && <p className="error-message" role="alert">{gradeStartError.message}</p>}{selectedGrade?.status === 'failed' && <p className="error-message">{selectedGrade.error || 'This route could not be graded.'}</p>}</section>
               <ActivityTssPanel key={`${detail.activity_id}:${token}:${indexRetry}`} id={detail.activity_id} sport={detail.activity_type} token={token} onTokenChange={onTokenChange} showProfileLink={false} />
-              <a className="full-detail-link" href={`#activity?aid=${encodeURIComponent(detail.activity_id)}`}>View full activity details <span aria-hidden="true">→</span></a>
             </>}
             <div className="detail-navigation"><button disabled={selectedIndex <= 0} onClick={() => selectActivity(shown[selectedIndex - 1].activity_id)}>← Newer</button><span>{selectedIndex + 1} of {shown.length}</span><button disabled={selectedIndex >= shown.length - 1} onClick={() => selectActivity(shown[selectedIndex + 1].activity_id)}>Older →</button></div>
           </> : <div className="detail-empty"><h2 id="activity-detail-title">Choose an activity</h2><p>Select one from the list to see its main information.</p></div>}

@@ -55,6 +55,23 @@ export default function App() {
   const isGrades = route === '#grades'
   const isProfile = route === '#profile'
 
+  useEffect(() => {
+    if (checkingSession) return
+    const title = isProfile ? 'Profile' : isGrades ? 'Route grades' : isPredictions ? 'Predictions' : activityId ? 'Activity details' : isActivities ? 'Activities' : 'Run conditions'
+    document.title = `${title} — Wind Score`
+    const focusHeading = () => {
+      const heading = document.querySelector<HTMLElement>('main h1')
+      if (!heading) return false
+      heading.tabIndex = -1
+      heading.focus({ preventScroll: true })
+      return true
+    }
+    if (focusHeading()) return
+    const observer = new MutationObserver(() => { if (focusHeading()) observer.disconnect() })
+    observer.observe(document.getElementById('root')!, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [route, checkingSession, isProfile, isGrades, isPredictions, activityId, isActivities])
+
   function openSignIn() {
     setSignInError('')
     signInDialog.current?.showModal()
@@ -121,10 +138,14 @@ export default function App() {
   if (checkingSession) return <main id="main"><p className="dashboard-state" role="status">Restoring session…</p></main>
 
   return <>
-    <a className="skip-link" href="#main">Skip to content</a>
+    <a className="skip-link" href="#main" onClick={(event) => {
+      event.preventDefault()
+      const main = document.getElementById('main')
+      if (main) { main.tabIndex = -1; main.focus({ preventScroll: true }); main.scrollIntoView() }
+    }}>Skip to content</a>
     <header className="header">
       <a className="brand" href="#check" aria-label="Wind Score home"><span className="brand-mark"><Icon name="wind" /></span>windscore<span className="brand-dot">.</span></a>
-      <nav aria-label="Main navigation"><a className={!isActivities && !isPredictions && !isGrades ? 'nav-active' : ''} href="#check" aria-current={!isActivities && !isPredictions && !isGrades ? 'page' : undefined}>Run conditions</a><a className={isActivities ? 'nav-active' : ''} href="#activities" aria-current={isActivities ? 'page' : undefined}>Activities</a><a className={isGrades ? 'nav-active' : ''} href="#grades" aria-current={isGrades ? 'page' : undefined}>Route grades</a><a className={isPredictions ? 'nav-active' : ''} href="#predictions" aria-current={isPredictions ? 'page' : undefined}>Predictions</a></nav>
+      <nav aria-label="Main navigation"><a className={!isActivities && !isPredictions && !isGrades && !isProfile ? 'nav-active' : ''} href="#check" aria-current={!isActivities && !isPredictions && !isGrades && !isProfile ? 'page' : undefined}>Run conditions</a><a className={isActivities ? 'nav-active' : ''} href="#activities" aria-current={isActivities ? 'page' : undefined}>Activities</a><a className={isGrades ? 'nav-active' : ''} href="#grades" aria-current={isGrades ? 'page' : undefined}>Route grades</a><a className={isPredictions ? 'nav-active' : ''} href="#predictions" aria-current={isPredictions ? 'page' : undefined}>Predictions</a>{token && <a className={isProfile ? 'nav-active' : ''} href="#profile" aria-current={isProfile ? 'page' : undefined}>Profile</a>}</nav>
       {signOutError && <span className="error-message" role="alert">{signOutError}</span>}{token ? <button className="header-auth" type="button" onClick={() => { void signOut() }} disabled={loading}>Sign out</button> : !isActivities && <button className="header-auth" type="button" onClick={openSignIn}>Sign in</button>}
     </header>
     <dialog className="sign-in-dialog" ref={signInDialog} aria-labelledby="sign-in-title">

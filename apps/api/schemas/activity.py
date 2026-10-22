@@ -13,6 +13,7 @@ class ActivityIndexResponse(BaseModel):
     started_at: datetime
     activity_type: str
     name: str | None = None
+    distance_km: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class ActivityTssResponse(BaseModel):
@@ -38,6 +39,13 @@ class WeeklyTssResponse(BaseModel):
     threshold_heart_rate_bpm: int = Field(ge=30, le=250)
     scored_activity_count: int = Field(ge=0)
     excluded_activity_count: int = Field(ge=0)
+
+
+class WeeklyTrainingResponse(WeeklyTssResponse):
+    """Weekly sport distances and combined training load."""
+
+    running_km: float | None = Field(ge=0, allow_inf_nan=False)
+    cycling_km: float | None = Field(ge=0, allow_inf_nan=False)
 
 
 class ActivityResponse(BaseModel):
