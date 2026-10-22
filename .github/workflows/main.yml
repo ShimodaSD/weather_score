@@ -1,33 +1,26 @@
 
-name: Codex Review to Tasks
+name: Trigger OpenBot
 
 on:
   pull_request_review:
     types: [submitted]
-  pull_request_review_comment:
-    types: [created]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pull-requests: read
 
 jobs:
-  sync-tasks:
+  notify-openbot:
+    if: github.event.review.user.login == 'chatgpt-codex-connector'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Process Codex review
+      - name: Trigger OpenBot routine
         env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          WEBHOOK_URL: ${{ secrets.OPENBOT_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.OPENBOT_WEBHOOK_SECRET }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-        run: python scripts/sync_codex_tasks.py
+        run: |
+          curl --fail-with-body --show-error \
+            --retry 3 \
+            -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"repository\":\"$REPO\",\"pr_number\":\"$PR_NUMBER\",\"pr_url\":\"$PR_URL\"}"
