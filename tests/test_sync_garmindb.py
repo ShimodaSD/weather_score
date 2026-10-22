@@ -172,16 +172,15 @@ def test_postgres_reuses_weather_connection_settings(monkeypatch) -> None:
     }
 
 
-def test_startup_sync_skips_initialized_garmin_database(monkeypatch) -> None:
+@pytest.mark.parametrize("activities", ["garmin_activities.activities", None])
+def test_startup_sync_detects_missing_activities_table(monkeypatch, activities) -> None:
     monkeypatch.setenv("DB_NAME", "weather")
     admin_connection = MagicMock()
     admin_connection.__enter__.return_value = admin_connection
     admin_connection.execute.return_value.fetchone.return_value = (1,)
     garmin_connection = MagicMock()
     garmin_connection.__enter__.return_value = garmin_connection
-    activities = MagicMock()
-    activities.fetchone.return_value = ("garmin_activities.activities",)
-    garmin_connection.execute.return_value = activities
+    garmin_connection.execute.return_value.fetchone.return_value = (activities,)
     monkeypatch.setattr(
         sync_garmindb, "_get_postgres_parameters", lambda name: {"dbname": name}
     )
@@ -191,20 +190,29 @@ def test_startup_sync_skips_initialized_garmin_database(monkeypatch) -> None:
         MagicMock(side_effect=[admin_connection, garmin_connection]),
     )
 
-    assert not sync_garmindb._postgres_sync_needed("garmin")
+    assert sync_garmindb._postgres_sync_needed("garmin") is (activities is None)
 
 
-def test_startup_sync_skips_when_garmin_config_is_missing(
-    tmp_path, monkeypatch, capsys
-) -> None:
+def test_startup_sync_skips_import_when_initialized(monkeypatch) -> None:
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--if-needed"])
+    monkeypatch.setenv("DB_NAME_GARMIN", "garmin")
+    monkeypatch.setattr(sync_garmindb, "_postgres_sync_needed", lambda _: False)
+    load_config = MagicMock()
+    monkeypatch.setattr(sync_garmindb, "_get_garmin_config", load_config)
+
+    sync_garmindb.main()
+
+    load_config.assert_not_called()
+
+
+def test_startup_sync_fails_when_garmin_config_is_missing(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--if-needed"])
     monkeypatch.setenv("DB_NAME_GARMIN", "garmin")
     monkeypatch.setenv("GARMINDB_CONFIG", str(tmp_path / "missing.json"))
     monkeypatch.setattr(sync_garmindb, "_postgres_sync_needed", lambda _: True)
 
-    sync_garmindb.main()
-
-    assert "startup import skipped" in capsys.readouterr().out
+    with pytest.raises(SystemExit, match="startup import requires GarminDB config"):
+        sync_garmindb.main()
 
 
 def test_copies_sqlite_activity_names_to_postgres(tmp_path, monkeypatch) -> None:
@@ -290,7 +298,13 @@ def test_tss_database_failure_fails_sync(monkeypatch) -> None:
         sync_garmindb._sync_postgres_activity_tss("garmin")
 
 
-def test_sync_updates_tss_after_activity_names(tmp_path, monkeypatch) -> None:
+@pytest.mark.parametrize("startup", [False, True])
+def test_sync_updates_tss_after_activity_names(tmp_path, monkeypatch, startup) -> None:
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), *(["--if-needed"] if startup else [])])
+    config = tmp_path / "GarminConnectConfig.json"
+    config.write_text("{}")
+    monkeypatch.setenv("GARMINDB_CONFIG", str(config))
+    monkeypatch.setattr(sync_garmindb, "_postgres_sync_needed", lambda _: True)
     target = tmp_path / "garmin_activities.db"
     monkeypatch.setenv("GARMINDB_PATH", str(target))
     monkeypatch.setenv("DB_NAME_GARMIN", "garmin")
@@ -306,4 +320,6 @@ def test_sync_updates_tss_after_activity_names(tmp_path, monkeypatch) -> None:
 
     sync_garmindb.main()
 
+    sync_garmindb._sync_sqlite.assert_called_once_with(tmp_path.parent)
+    sync_garmindb._import_postgres.assert_called_once_with({}, tmp_path.parent, "garmin")
     assert [call[0] for call in updates.mock_calls] == ["names", "tss"]

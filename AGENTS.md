@@ -67,6 +67,12 @@ Existing routes include:
 Geocoding is internal to scoring; the former standalone geocoding, workout-type
 scoring, and paginated activity-summary list routes have been removed.
 Profile and activity-grade tables are initialized during API startup.
+Compose first runs `scripts/initialize_postgres.py` to apply the schema-only
+snapshots in `apps/api/sql/` to both databases; it never runs Garmin sync during
+startup. `make postgres-init` applies the same snapshots manually. Existing
+objects and data are preserved; these snapshots do not migrate changed tables.
+See `docs/postgres-schema.md`. Initializer tests are in
+`tests/test_initialize_postgres.py`.
 
 Routes included through `protected_api` require the bearer token. Preserve
 that behavior unless the authentication design is intentionally changed.
