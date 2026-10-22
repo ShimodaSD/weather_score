@@ -235,3 +235,7 @@ as well as correctness:
   and user impact; distinguish measured results from suspected risks.
 - Do not claim an implementation is the fastest without benchmark evidence.
   Avoid speculative optimizations and dependencies without a demonstrated need.
+
+Codex PR review notifications use `.github/workflows/main.yml` and
+`scripts/notify_openbot.py`. Setup and webhook contract are documented in
+`docs/openbot-notifications.md`; mocked checks live in `tests/test_notify_openbot.py`.
