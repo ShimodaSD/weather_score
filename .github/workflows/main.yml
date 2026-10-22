@@ -1,8 +1,12 @@
+
 name: Codex Review to Tasks
 
 on:
   pull_request_review:
     types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -10,17 +14,20 @@ permissions:
 
 jobs:
   sync-tasks:
-    if: >-
-      github.event.review.user.login ==
-      'chatgpt-codex-connector'
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Process review
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Process Codex review
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
           REPO: ${{ github.repository }}
         run: python scripts/sync_codex_tasks.py
