@@ -5,14 +5,16 @@
 Compose uses the repository-root `.env`, its own PostgreSQL service, and Garmin
 files inside this project. It does not mount your host home directory.
 
-Place your complete `GarminConnectConfig.json` in the project root, with your
+Compose mounts `/Users/shimoda/.GarminDb/GarminConnectConfig.json` read-only at
+`/app/GarminConnectConfig.json`. Change the bind source in `compose.yaml` if your
+configuration lives elsewhere. The source file must exist, with your
 Garmin username in `credentials.user` and SQLite as the database type. Set
 `SECRET_GARMIN` in `.env` to your Garmin password. Each sync generates
-`workspace/garmin/.GarminDb/GarminConnectConfig.json` from that file, injecting
+`/root/.GarminDb/GarminConnectConfig.json` from that file, injecting
 the password and project data path. The generated file has mode `0600`;
-both config files and `.env` are ignored by Git. Existing password-file and
+The source configuration and `.env` must stay out of Git. Existing password-file and
 secure-password settings are replaced by the `.env` password. Existing session
-files can also be placed in `workspace/garmin/.GarminDb/`.
+files are managed by GarminDB inside the backend container.
 
 Place any existing downloaded Garmin data and SQLite databases in
 `workspace/garmin/HealthData/` (the activities database belongs at
@@ -25,11 +27,41 @@ docker compose exec -w /app backend make garmin-sync
 ```
 
 Compose supplies the container database path and mounts the project Garmin
-configuration at `/root/.GarminDb`. It disables the optional bootstrap path;
+configuration at `/app/GarminConnectConfig.json`. It disables the optional bootstrap path;
 reuse existing data by placing it in the project directory above. Subsequent
 refreshes use the same command or the dashboard's **Get new data** button.
-The first sync populates the new PostgreSQL database before activity pages can
-load. Merely starting Compose does not download Garmin data.
+Before starting the API, Compose runs `scripts/initialize_postgres.py` to create
+all tables from schema-only SQL snapshots. Startup never waits for a Garmin
+download or import. Activity lists are empty until the first sync completes.
+Run the explicit sync command above, or use **Get new data**, to populate or
+refresh data after startup. See [PostgreSQL schema](postgres-schema.md).
+
+### Download progress
+
+**Get new data** shows a live file counter and remaining files on Activities and
+Grades. While Garmin is logging in and listing activities, it shows “Checking
+Garmin for new data”; the total is unknown until that list arrives. The counter
+includes missing activity summary JSON, detail JSON and downloaded ZIP archives
+for this sync's configured activity window. Existing files that GarminDB skips
+are excluded. A ZIP counts as one transfer, regardless of extracted FIT files.
+This is a file count, not a byte count or a count of all history on Garmin.
+
+After transfers and extraction finish, the display changes to importing.
+The final activity count appears after the PostgreSQL import and TSS update.
+Failed transfers do not advance the counter. Failed progress requests display
+an unavailable message while the sync request continues.
+
+The protected `GET /activities/sync/status` endpoint returns `phase`,
+`downloaded_files`, and nullable `total_files`; both pages query immediately, then every 30 seconds
+while authenticated, including on page entry. An active sync is restored after
+a refresh or navigation, and disables duplicate sync requests. When a restored
+sync changes from active to complete, the page reloads its activity data and
+dashboard totals once. Repeated complete responses do not reload data; syncs
+started on the page continue to refresh through their POST completion path.
+The existing POST response is unchanged.
+Progress and the sync lock belong to the single API process used by Compose;
+multiple API workers would require shared job state. The downloader instrumentation
+targets the pinned GarminDB 3.9 implementation and must be reviewed on upgrades.
 
 ## Running without Docker
 
@@ -39,7 +71,7 @@ configuration.
 
 The Docker backend mounts
 `/Users/shimoda/.GarminDb/GarminConnectConfig.json` read-only at
-`/root/.GarminDb/GarminConnectConfig.json`, where GarminDB expects it in the
+`/app/GarminConnectConfig.json`, which the sync command uses in the
 container. The source file must already exist. After changing the mount, apply
 it with `docker compose up -d --no-deps backend`. This mounts only the config;
 the configured activity-data paths must also be accessible inside Docker.

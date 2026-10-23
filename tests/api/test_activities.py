@@ -42,6 +42,7 @@ ACTIVITY = {
 
 
 def test_activities_require_bearer_token():
+    assert client.get("/activities/sync/status").status_code == 401
     response = client.get("/activities/index")
 
     assert response.status_code == 401
@@ -281,6 +282,18 @@ def test_activity_tss_missing_activity_or_data(monkeypatch, activity, status):
     assert response.status_code == status
 
 
+def test_sync_status_reports_only_counters(monkeypatch):
+    from apps.api.schemas.activity import GarminSyncProgress
+
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    monkeypatch.setattr(garmin, "get_sync_progress", lambda: GarminSyncProgress(
+        phase="downloading", downloaded_files=2, total_files=6,
+    ))
+    response = client.get("/activities/sync/status", headers={"Authorization": "Bearer token"})
+    assert response.status_code == 200
+    assert response.json() == {"phase": "downloading", "downloaded_files": 2, "total_files": 6}
+
+
 def test_syncs_and_reports_new_garmin_activities(monkeypatch):
     monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
     fetch = AsyncMock(
@@ -344,6 +357,7 @@ def test_lists_lightweight_activity_index(monkeypatch):
                 "started_at": ACTIVITY["started_at"],
                 "activity_type": "running",
                 "name": "Morning Run",
+                "distance_km": 5.0,
             }
         ]
     )
@@ -360,6 +374,7 @@ def test_lists_lightweight_activity_index(monkeypatch):
             "started_at": "2026-09-11T06:30:00Z",
             "activity_type": "running",
             "name": "Morning Run",
+            "distance_km": 5.0,
         }
     ]
     fetch.assert_awaited_once_with()
@@ -439,3 +454,84 @@ def test_unknown_activity_returns_not_found(monkeypatch):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Activity not found."}
+
+
+def test_weekly_training_history_contract_and_authentication(monkeypatch):
+    assert (
+        client.get("/activities/training/weekly?week_of=2026-09-24").status_code == 401
+    )
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    monkeypatch.setattr(
+        garmin,
+        "fetch_profile",
+        AsyncMock(return_value={"threshold_heart_rate_bpm": 157}),
+    )
+    fetch = AsyncMock(return_value=[ACTIVITY])
+    monkeypatch.setattr(garmin, "fetch_weekly_tss_inputs", fetch)
+    headers = {"Authorization": "Bearer token"}
+    response = client.get(
+        "/activities/training/weekly?week_of=2026-09-24", headers=headers
+    )
+    assert response.status_code == 200
+    weeks = response.json()
+    assert len(weeks) == 12
+    assert weeks[-1]["week_start"] == "2026-09-21"
+    week = next(week for week in weeks if week["week_start"] == "2026-09-07")
+    assert week["running_km"] == 5
+    assert week["cycling_km"] == 0
+    assert week["tss"] == 40
+    fetch.assert_awaited_once_with(date(2026, 7, 6), date(2026, 9, 28))
+    for invalid in ("invalid", "0001-01-01", "9999-12-31"):
+        assert (
+            client.get(
+                f"/activities/training/weekly?week_of={invalid}", headers=headers
+            ).status_code
+            == 422
+        )
+
+
+@pytest.mark.parametrize(
+    "path,fetch_name",
+    [
+        ("/activities/index", "fetch_activity_index"),
+        ("/activities/tss/weekly?week_of=2026-09-24", "fetch_weekly_tss_inputs"),
+        ("/activities/training/weekly?week_of=2026-09-24", "fetch_weekly_tss_inputs"),
+    ],
+)
+def test_missing_garmin_tables_explain_first_import(monkeypatch, path, fetch_name):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    monkeypatch.setattr(
+        garmin,
+        "fetch_profile",
+        AsyncMock(return_value={"threshold_heart_rate_bpm": 157}),
+    )
+    monkeypatch.setattr(
+        garmin,
+        fetch_name,
+        AsyncMock(side_effect=garmin.UndefinedTable("missing table")),
+    )
+    response = client.get(path, headers={"Authorization": "Bearer token"})
+    assert response.status_code == 503
+    assert "Get new data" in response.json()["detail"]
+
+
+def test_first_sync_initializes_missing_activity_table(monkeypatch):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    monkeypatch.setattr(
+        garmin,
+        "fetch_activity_index",
+        AsyncMock(
+            side_effect=[
+                garmin.UndefinedTable("missing table"),
+                [{"activity_id": "123"}],
+            ]
+        ),
+    )
+    sync = AsyncMock()
+    monkeypatch.setattr(garmin, "run_garmindb_sync", sync)
+    response = client.post(
+        "/activities/sync", headers={"Authorization": "Bearer token"}
+    )
+    assert response.status_code == 200
+    assert response.json() == {"new_activities": 1, "total_activities": 1}
+    sync.assert_awaited_once_with()

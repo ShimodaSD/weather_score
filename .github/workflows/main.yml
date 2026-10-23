@@ -1,4 +1,5 @@
-name: Codex Review to Tasks
+
+name: Sync Codex Reviews to OpenBot
 
 on:
   pull_request_review:
@@ -6,21 +7,26 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
-  sync-tasks:
+  notify-openbot:
     if: >-
-      github.event.review.user.login ==
-      'chatgpt-codex-connector'
+      github.event.repository.full_name == 'ShimodaSD/weather_score' &&
+      github.event.review.user.login == 'chatgpt-codex-connector[bot]' &&
+      github.event.sender.login == 'chatgpt-codex-connector[bot]'
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout trusted repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
-      - name: Process review
+      - name: Notify OpenBot
         env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: python scripts/sync_codex_tasks.py
+          OPENBOT_WEBHOOK_URL: ${{ secrets.OPENBOT_WEBHOOK_URL }}
+          OPENBOT_WEBHOOK_SECRET: ${{ secrets.OPENBOT_WEBHOOK_SECRET }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          python3 scripts/notify_openbot.py

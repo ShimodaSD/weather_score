@@ -1,9 +1,11 @@
 """Visualization-ready Garmin activity endpoints."""
 
+from collections.abc import AsyncIterator
 from datetime import date, datetime, time, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from psycopg.errors import UndefinedTable
 lazy from psycopg.rows import dict_row
 lazy from weather_score.application.running_predictions import (
     calculate_running_predictions,
@@ -12,6 +14,7 @@ lazy from weather_score.application.training_stress import (
     calculate_activity_tss,
     calculate_tss_total,
 )
+lazy from weather_score.application.weekly_training import calculate_weekly_training
 
 try:
     from ..schemas.activity import (
@@ -19,7 +22,9 @@ try:
         ActivityIndexResponse,
         ActivityResponse,
         ActivityTssResponse,
+        GarminSyncProgress,
         RunningPredictionsResponse,
+        WeeklyTrainingResponse,
         WeeklyTssResponse,
     )
     from ..schemas.activity_grade import ActivityGradeResponse
@@ -29,7 +34,7 @@ try:
         process_activity_grade,
         queue_activity_grade,
     )
-    from ..services.garmin import run_garmindb_sync
+    from ..services.garmin import get_sync_progress, run_garmindb_sync
     from ..services.profile import fetch_profile
     from .connections.database import garmin_pool
 except ImportError:
@@ -39,7 +44,9 @@ except ImportError:
         ActivityIndexResponse,
         ActivityResponse,
         ActivityTssResponse,
+        GarminSyncProgress,
         RunningPredictionsResponse,
+        WeeklyTrainingResponse,
         WeeklyTssResponse,
     )
     from schemas.activity_grade import ActivityGradeResponse
@@ -49,13 +56,25 @@ except ImportError:
         process_activity_grade,
         queue_activity_grade,
     )
-    from services.garmin import run_garmindb_sync
+    from services.garmin import get_sync_progress, run_garmindb_sync
     from services.profile import fetch_profile
+
+
+async def require_activity_database() -> AsyncIterator[None]:
+    """Explain missing Garmin tables while allowing the first sync to initialize them."""
+    try:
+        yield
+    except UndefinedTable as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Garmin activity data is not initialized. Use Get new data to run the first import.",
+        ) from error
+
 
 router = APIRouter(
     prefix="/activities",
     tags=["Activities"],
-    dependencies=[Depends(require_access_token)],
+    dependencies=[Depends(require_access_token), Depends(require_activity_database)],
 )
 
 ACTIVITY_SELECT = """
@@ -99,7 +118,8 @@ async def fetch_activity_index() -> list[dict[str, object]]:
     ):
         await cursor.execute(
             "SELECT activity_id::text AS activity_id, start_time AS started_at, "
-            "sport AS activity_type, name FROM garmin_activities.activities "
+            "sport AS activity_type, name, distance::double precision AS distance_km "
+            "FROM garmin_activities.activities "
             "ORDER BY start_time DESC, activity_id DESC"
         )
         return await cursor.fetchall()
@@ -113,6 +133,7 @@ async def fetch_weekly_tss_inputs(start: date, end: date) -> list[dict[str, obje
     ):
         await cursor.execute(
             "SELECT sport AS activity_type, avg_hr AS average_heart_rate_bpm, "
+            "start_time AS started_at, distance::double precision AS distance_km, "
             "EXTRACT(EPOCH FROM elapsed_time)::double precision AS elapsed_seconds "
             "FROM garmin_activities.activities WHERE start_time >= %s AND start_time < %s",
             (datetime.combine(start, time.min), datetime.combine(end, time.min)),
@@ -141,6 +162,23 @@ async def get_weekly_tss(week_of: date) -> dict[str, object]:
         "threshold_heart_rate_bpm": profile["threshold_heart_rate_bpm"],
         **total,
     }
+
+
+@router.get("/training/weekly", response_model=list[WeeklyTrainingResponse])
+async def get_weekly_training(week_of: date) -> list[dict[str, object]]:
+    """Return twelve calendar weeks including the browser's current week."""
+    try:
+        end = week_of - timedelta(days=week_of.weekday()) + timedelta(days=7)
+        start = end - timedelta(weeks=12)
+    except OverflowError as error:
+        raise HTTPException(
+            status_code=422, detail="Week is outside the supported date range."
+        ) from error
+    profile = await fetch_profile()
+    activities = await fetch_weekly_tss_inputs(start, end)
+    return calculate_weekly_training(
+        activities, start, profile["threshold_heart_rate_bpm"]
+    )
 
 
 async def fetch_running_prediction_inputs() -> list[dict[str, object]]:
@@ -250,6 +288,12 @@ async def list_activity_grades() -> list[dict[str, object]]:
     return await fetch_activity_grades()
 
 
+@router.get("/sync/status", response_model=GarminSyncProgress)
+async def get_garmin_sync_status() -> GarminSyncProgress:
+    """Report live file progress for the authenticated sync action."""
+    return get_sync_progress()
+
+
 @router.post(
     "/sync",
     response_model=dict[str, int],
@@ -257,7 +301,10 @@ async def list_activity_grades() -> list[dict[str, object]]:
 )
 async def sync_garmin_activities() -> dict[str, int]:
     """Run GarminDB's incremental sync and report newly imported activities."""
-    before = {activity["activity_id"] for activity in await fetch_activity_index()}
+    try:
+        before = {activity["activity_id"] for activity in await fetch_activity_index()}
+    except UndefinedTable:
+        before = set()
     await run_garmindb_sync()
     activities = await fetch_activity_index()
     after = {activity["activity_id"] for activity in activities}

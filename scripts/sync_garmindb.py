@@ -116,7 +116,7 @@ def _run_garmindb(
     command = (
         [sys.executable, "-u", str(Path(__file__).with_name("import_garmindb.py"))]
         if normalize_activity_ids
-        else ["garmindb_cli.py"]
+        else [sys.executable, "-u", str(Path(__file__).with_name("download_garmindb.py"))]
     ) + arguments
     markers = (
         "failed to login",
@@ -137,7 +137,7 @@ def _run_garmindb(
     upstream_failed = False
     assert process.stdout is not None
     for line in process.stdout:
-        print(line, end="")
+        print(line, end="", flush=True)
         upstream_failed |= any(marker in line.casefold() for marker in markers)
     if process.wait() != 0 or upstream_failed:
         _fail_sync("GarminDB operation failed; see the output above")
@@ -395,10 +395,8 @@ def main() -> None:
             )
         )
         if not config_path.is_file():
-            print(
-                f"garmin-sync: startup import skipped; GarminDB config is missing: {config_path}"
-            )
-            return
+            _fail_sync(f"startup import requires GarminDB config: {config_path}")
+        print("garmin-sync: initializing GarminDB before API startup", flush=True)
     configured_target = os.environ.get("GARMINDB_PATH")
     if not configured_target:
         _fail_sync("set GARMINDB_PATH to garmin_activities.db")

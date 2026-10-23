@@ -67,6 +67,12 @@ Existing routes include:
 Geocoding is internal to scoring; the former standalone geocoding, workout-type
 scoring, and paginated activity-summary list routes have been removed.
 Profile and activity-grade tables are initialized during API startup.
+Compose first runs `scripts/initialize_postgres.py` to apply the schema-only
+snapshots in `apps/api/sql/` to both databases; it never runs Garmin sync during
+startup. `make postgres-init` applies the same snapshots manually. Existing
+objects and data are preserved; these snapshots do not migrate changed tables.
+See `docs/postgres-schema.md`. Initializer tests are in
+`tests/test_initialize_postgres.py`.
 
 Routes included through `protected_api` require the bearer token. Preserve
 that behavior unless the authentication design is intentionally changed.
@@ -136,6 +142,13 @@ the frontend `pnpm test` command.
 Dashboard sync and grade interactions are checked by
 `apps/web/tests/activities.browser.cjs`; see `apps/web/README.md` for the
 development-server and existing Playwright requirements.
+Both **Get new data** buttons poll protected `GET /activities/sync/status`
+on page entry and every 30 seconds for live downloaded/total file counts and
+the download/import phase, including syncs already running after navigation. Progress
+comes from `scripts/download_garmindb.py` and stays in the single API process.
+Coverage is in `tests/test_download_garmindb.py`, `tests/api/test_garmin.py`,
+the activity API/client tests, and the browser sync check. See
+`docs/garmin-sync.md` for file-count semantics and GarminDB compatibility.
 Activity details include a TSS calculator using protected
 `GET /activities/{id}/tss` and `src/weather_score/application/training_stress.py`.
 TSS is training load and may exceed 100; the 0–100 rule applies to weather
@@ -202,3 +215,40 @@ Update this guide when shared schemas, tests, or build commands are added.
 A change is complete when it is placed in the correct app layer, preserves
 the API/security contract, has tests for changed behavior, does not expose
 secrets, and has been checked with the relevant backend or frontend tooling.
+
+The Activities dashboard charts twelve Monday–Sunday weeks using protected
+`GET /activities/training/weekly?week_of=YYYY-MM-DD`. Running and cycling kilometres
+are separate; TSS combines available estimates using the saved profile threshold.
+Empty weeks are zero; missing or invalid distances are null, and excluded TSS
+activities are counted. Aggregation lives in
+`src/weather_score/application/weekly_training.py`, covered by
+`tests/scores/test_weekly_training.py`, `tests/api/test_activities.py`, and the
+frontend client tests. The chart includes an expandable data table.
+
+UI/UX regression coverage in `apps/web/tests/activities.browser.cjs` includes
+skip-link routing, Profile navigation, route titles/focus, responsive overflow,
+and keyboard chart controls/data. Run with the existing Playwright setup from
+`apps/web/README.md`. The full-detail chart exposes a recorded-value table;
+weekly sport bars use solid/striped patterns as well as colors.
+
+`GET /activities/index` includes nullable `distance_km` for the dashboard's
+current Monday–Sunday running + cycling distance card. Other sports are excluded; missing
+distances are counted and disclosed. The lightweight query still avoids joins.
+
+## Review guidelines
+
+For GitHub pull-request reviews, evaluate new and changed code for performance
+as well as correctness:
+
+- Check unnecessary API calls, repeated database queries, missing query bounds,
+  redundant React rendering, inefficient loops, and avoidable memory use.
+- Prefer the simplest efficient implementation that preserves validation,
+  error handling, security, and accessibility.
+- Measure meaningful bottlenecks when practical. Identify the affected workload
+  and user impact; distinguish measured results from suspected risks.
+- Do not claim an implementation is the fastest without benchmark evidence.
+  Avoid speculative optimizations and dependencies without a demonstrated need.
+
+Codex PR review notifications use `.github/workflows/main.yml` and
+`scripts/notify_openbot.py`. Setup and webhook contract are documented in
+`docs/openbot-notifications.md`; mocked checks live in `tests/test_notify_openbot.py`.

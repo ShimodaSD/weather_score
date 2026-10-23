@@ -6,6 +6,14 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class GarminSyncProgress(BaseModel):
+    """File transfer progress for the current process's Garmin sync."""
+
+    phase: Literal["idle", "checking", "downloading", "importing", "complete", "failed"] = "idle"
+    downloaded_files: int = Field(default=0, ge=0)
+    total_files: int | None = Field(default=None, ge=0)
+
+
 class ActivityIndexResponse(BaseModel):
     """Lightweight activity entry for dashboard navigation."""
 
@@ -13,6 +21,7 @@ class ActivityIndexResponse(BaseModel):
     started_at: datetime
     activity_type: str
     name: str | None = None
+    distance_km: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class ActivityTssResponse(BaseModel):
@@ -38,6 +47,13 @@ class WeeklyTssResponse(BaseModel):
     threshold_heart_rate_bpm: int = Field(ge=30, le=250)
     scored_activity_count: int = Field(ge=0)
     excluded_activity_count: int = Field(ge=0)
+
+
+class WeeklyTrainingResponse(WeeklyTssResponse):
+    """Weekly sport distances and combined training load."""
+
+    running_km: float | None = Field(ge=0, allow_inf_nan=False)
+    cycling_km: float | None = Field(ge=0, allow_inf_nan=False)
 
 
 class ActivityResponse(BaseModel):

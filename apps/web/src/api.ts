@@ -26,7 +26,7 @@ export type Activity = {
   training_effect: number | null
   anaerobic_training_effect: number | null
 }
-export type ActivityIndex = Pick<Activity, 'activity_id' | 'activity_type' | 'name' | 'started_at'>
+export type ActivityIndex = Pick<Activity, 'activity_id' | 'activity_type' | 'name' | 'started_at'> & { distance_km?: number | null }
 export type ActivityTss = {
   activity_id: string
   tss: number
@@ -128,6 +128,7 @@ const isIndex = (item: unknown): item is ActivityIndex & Record<string, unknown>
   && typeof item.activity_id === 'string' && typeof item.activity_type === 'string'
   && typeof item.started_at === 'string' && Number.isFinite(Date.parse(item.started_at))
   && (item.name === null || typeof item.name === 'string')
+  && (item.distance_km == null || typeof item.distance_km === 'number' && Number.isFinite(item.distance_km) && item.distance_km >= 0)
 const activityNumbers = ['moving_seconds', 'distance_km', 'average_pace_seconds_per_km', 'average_speed_kph',
   'average_heart_rate_bpm', 'maximum_heart_rate_bpm', 'calories', 'average_cadence_per_minute',
   'elevation_gain_m', 'elevation_loss_m', 'average_temperature_c', 'training_effect', 'anaerobic_training_effect']
@@ -155,7 +156,10 @@ async function fetchActivityJson(baseUrl: string, path: string, token: string, m
     const data: unknown = await response.json().catch(() => null)
     throw new Error(isRecord(data) && typeof data.detail === 'string' ? data.detail : 'Check the supplied values and try again.')
   }
-  if (!response.ok) throw new Error('Activities are unavailable right now. Please try again shortly.')
+  if (!response.ok) {
+    const data: unknown = await response.json().catch(() => null)
+    throw new Error(isRecord(data) && typeof data.detail === 'string' ? data.detail : 'Activities are unavailable right now. Please try again shortly.')
+  }
   return response.json().catch(() => null)
 }
 
@@ -190,6 +194,22 @@ export async function syncGarminActivities(baseUrl: string, token: string): Prom
     throw new Error('The service returned an unexpected Garmin sync response.')
   }
   return data as GarminSyncResult
+}
+
+export type GarminSyncProgress = {
+  phase: 'idle' | 'checking' | 'downloading' | 'importing' | 'complete' | 'failed'
+  downloaded_files: number
+  total_files: number | null
+}
+
+export async function fetchGarminSyncProgress(baseUrl: string, token: string): Promise<GarminSyncProgress> {
+  const data = await fetchActivityJson(baseUrl, '/activities/sync/status', token)
+  if (!isRecord(data) || !['idle', 'checking', 'downloading', 'importing', 'complete', 'failed'].includes(String(data.phase))
+    || !Number.isSafeInteger(data.downloaded_files) || (data.downloaded_files as number) < 0
+    || data.total_files !== null && (!Number.isSafeInteger(data.total_files) || (data.total_files as number) < (data.downloaded_files as number))) {
+    throw new Error('The service returned unexpected Garmin download progress.')
+  }
+  return data as GarminSyncProgress
 }
 
 export async function startActivityGrade(baseUrl: string, id: string, token: string): Promise<ActivityGrade> {
@@ -238,15 +258,29 @@ export async function fetchActivityTss(baseUrl: string, id: string, token: strin
 export async function fetchWeeklyTss(baseUrl: string, token: string, today = new Date()): Promise<WeeklyTss> {
   const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const data = await fetchActivityJson(baseUrl, `/activities/tss/weekly?week_of=${localDate}`, token)
-  if (!isRecord(data)
-    || ![data.week_start, data.week_end].every((value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)))
-    || !['scored_activity_count', 'excluded_activity_count'].every((key) => typeof data[key] === 'number' && Number.isInteger(data[key]) && (data[key] as number) >= 0)
-    || !(data.tss === null || typeof data.tss === 'number' && Number.isFinite(data.tss) && data.tss >= 0)
-    || typeof data.threshold_heart_rate_bpm !== 'number' || !Number.isInteger(data.threshold_heart_rate_bpm)
-    || data.threshold_heart_rate_bpm < 30 || data.threshold_heart_rate_bpm > 250) {
-    throw new Error('The service returned an unexpected weekly TSS response.')
+  if (!isWeeklyTss(data)) throw new Error('The service returned an unexpected weekly TSS response.')
+  return data
+}
+
+function isWeeklyTss(data: unknown): data is WeeklyTss {
+  return isRecord(data)
+    && [data.week_start, data.week_end].every((value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)))
+    && ['scored_activity_count', 'excluded_activity_count'].every((key) => typeof data[key] === 'number' && Number.isInteger(data[key]) && (data[key] as number) >= 0)
+    && (data.tss === null || typeof data.tss === 'number' && Number.isFinite(data.tss) && data.tss >= 0)
+    && typeof data.threshold_heart_rate_bpm === 'number' && Number.isInteger(data.threshold_heart_rate_bpm)
+    && data.threshold_heart_rate_bpm >= 30 && data.threshold_heart_rate_bpm <= 250
+}
+
+export type WeeklyTraining = WeeklyTss & { running_km: number | null; cycling_km: number | null }
+
+export async function fetchWeeklyTraining(baseUrl: string, token: string, today = new Date()): Promise<WeeklyTraining[]> {
+  const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const data = await fetchActivityJson(baseUrl, `/activities/training/weekly?week_of=${localDate}`, token)
+  if (!Array.isArray(data) || data.length !== 12 || !data.every((week) => isRecord(week)
+    && ['running_km', 'cycling_km'].every((key) => week[key] === null || typeof week[key] === 'number' && Number.isFinite(week[key]) && week[key] >= 0) && isWeeklyTss(week))) {
+    throw new Error('The service returned an unexpected weekly training response.')
   }
-  return data as WeeklyTss
+  return data as WeeklyTraining[]
 }
 
 export async function fetchActivityIndex(baseUrl: string, token: string): Promise<ActivityIndex[]> {
