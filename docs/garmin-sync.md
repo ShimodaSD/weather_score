@@ -80,6 +80,11 @@ command:
 make garmin-sync
 ```
 
+Before downloading, the command creates `DB_NAME_GARMIN` if missing and
+initializes all GarminDB health, activity, monitoring, and summary tables,
+including the activity `tss` column. Initialization preserves existing data;
+if it fails, the download does not start. PostgreSQL itself must already be running.
+
 The command downloads activities only, keeps the local SQLite database, and
 imports every locally downloaded Garmin data type into `DB_NAME_GARMIN` on the
 same PostgreSQL server as `DB_NAME`. GarminDB creates separate `garmin`,
