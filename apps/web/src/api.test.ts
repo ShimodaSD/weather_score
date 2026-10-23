@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchActivityTss, fetchWeeklyTss, fetchWeeklyTraining, fetchProfile, saveProfile, fetchRunGrade, fetchRunScore, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities } from './api.ts'
+import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchActivityTss, fetchWeeklyTss, fetchWeeklyTraining, fetchProfile, saveProfile, fetchRunGrade, fetchRunScore, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities, fetchGarminSyncProgress } from './api.ts'
 
 
 const grade = JSON.parse(readFileSync(new URL('../../../tests/contracts/run_grade.json', import.meta.url), 'utf8'))
@@ -245,4 +245,19 @@ test('activity index accepts recorded distances and rejects invalid distances', 
     mock.mock.mockImplementation(async () => new Response(JSON.stringify([{ ...item, distance_km }])))
     await assert.rejects(fetchActivityIndex('/api', 'token'), /unexpected activity response/)
   }
+})
+
+
+test('Garmin progress validates counters and uses authentication', async (t) => {
+  const result = { phase: 'downloading', downloaded_files: 2, total_files: 6 }
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(result)))
+  assert.deepEqual(await fetchGarminSyncProgress('/api', 'token'), result)
+  assert.equal(mock.mock.calls[0].arguments[0], '/api/activities/sync/status')
+  assert.equal(new Headers(mock.mock.calls[0].arguments[1]?.headers).get('Authorization'), 'Bearer token')
+  for (const invalid of [{ ...result, downloaded_files: -1 }, { ...result, total_files: 1 }, { ...result, phase: 'unknown' }, {}]) {
+    mock.mock.mockImplementation(async () => new Response(JSON.stringify(invalid)))
+    await assert.rejects(fetchGarminSyncProgress('/api', 'token'), /unexpected Garmin download progress/)
+  }
+  mock.mock.mockImplementation(async () => new Response('', { status: 401 }))
+  await assert.rejects(fetchGarminSyncProgress('/api', 'token'), /sign-in expired/)
 })

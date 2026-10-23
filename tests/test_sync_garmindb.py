@@ -95,13 +95,19 @@ def _create_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
     bin_dir.mkdir()
     fake_cli = bin_dir / "garmindb_cli.py"
     fake_cli.write_text(
-        "#!/bin/sh\n"
-        'printf "%s\\n" "$PWD" > "$GARMIN_TEST_CWD"\n'
-        'printf "%s\\n" "$*" > "$GARMIN_TEST_ARGS"\n'
+        "import os, sys\nfrom pathlib import Path\n"
+        'Path(os.environ["GARMIN_TEST_CWD"]).write_text(os.getcwd())\n'
+        'Path(os.environ["GARMIN_TEST_ARGS"]).write_text(" ".join(sys.argv[1:]))\n'
+    )
+    (bin_dir / "garmindb.py").write_text(
+        "class Download:\n"
+        "    get_activities = _Download__get_activity_summaries = lambda *args: None\n"
+        "    save_json_to_file = save_binary_file = lambda *args: None\n"
     )
     fake_cli.chmod(0o755)
     environment = os.environ | {
         "HOME": str(home),
+        "PYTHONPATH": str(bin_dir),
         "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
         "GARMINDB_PATH": str(target),
         "GARMIN_TEST_CWD": str(tmp_path / "cwd"),
@@ -138,7 +144,7 @@ def test_returns_failure_when_upstream_hides_login_error(tmp_path: Path) -> None
     environment, target, _ = _create_environment(tmp_path)
     _create_database(target, activities=True)
     fake_cli = Path(environment["PATH"].split(os.pathsep)[0]) / "garmindb_cli.py"
-    fake_cli.write_text("#!/bin/sh\necho 'Failed to login!'\n")
+    fake_cli.write_text("print('Failed to login!')\n")
     fake_cli.chmod(0o755)
 
     result = subprocess.run(

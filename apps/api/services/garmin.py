@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import sqlite3
 from pathlib import Path
+
+try:
+    from ..schemas.activity import GarminSyncProgress
+except ImportError:
+    from schemas.activity import GarminSyncProgress
 
 lazy from fastapi import HTTPException
 lazy from psycopg import Error as PsycopgError
@@ -16,6 +22,12 @@ lazy from psycopg_pool import PoolClosed, PoolTimeout
 BATCH_SIZE = 1000
 logger = logging.getLogger(__name__)
 _garmindb_sync_lock = asyncio.Lock()
+_sync_progress = GarminSyncProgress()
+
+
+def get_sync_progress() -> GarminSyncProgress:
+    """Return a snapshot without exposing upstream logs or credentials."""
+    return _sync_progress.model_copy()
 
 
 def _open_activities(
@@ -56,6 +68,8 @@ async def run_garmindb_sync() -> None:
     if _garmindb_sync_lock.locked():
         raise HTTPException(status_code=409, detail="Garmin sync is already running.")
     async with _garmindb_sync_lock:
+        global _sync_progress
+        _sync_progress = GarminSyncProgress(phase="checking")
         root = Path(__file__).parents[3]
         try:
             process = await asyncio.create_subprocess_exec(
@@ -66,22 +80,49 @@ async def run_garmindb_sync() -> None:
                 stderr=asyncio.subprocess.STDOUT,
             )
         except OSError as error:
+            _sync_progress.phase = "failed"
             raise HTTPException(
                 status_code=503, detail="Garmin sync could not be started."
             ) from error
+        output = ""
+
+        async def read_output() -> None:
+            nonlocal output
+            global _sync_progress
+            assert process.stdout is not None
+            while line := await process.stdout.readline():
+                decoded = line.decode(errors="replace")
+                output = (output + decoded)[-2000:]
+                if "garmin-progress: " in decoded:
+                    payload = decoded.split("garmin-progress: ", 1)[1]
+                    try:
+                        progress = GarminSyncProgress.model_validate(json.loads(payload))
+                        if (
+                            progress.phase in {"downloading", "importing"}
+                            and progress.total_files is not None
+                            and progress.downloaded_files <= progress.total_files
+                        ):
+                            _sync_progress = progress
+                    except ValueError:
+                        pass
+            await process.wait()
+
         try:
-            output, _ = await asyncio.wait_for(process.communicate(), timeout=600)
+            await asyncio.wait_for(read_output(), timeout=600)
         except TimeoutError as error:
             process.kill()
             await process.communicate()
+            _sync_progress.phase = "failed"
             raise HTTPException(
                 status_code=504, detail="Garmin sync timed out."
             ) from error
         if process.returncode:
+            _sync_progress.phase = "failed"
             logger.error(
-                "GarminDB command failed: %s", output.decode(errors="replace")[-2000:]
+                "GarminDB command failed: %s", output
             )
             raise HTTPException(status_code=502, detail="Garmin sync failed.")
+        _sync_progress.phase = "complete"
 
 
 async def sync_activities() -> int:

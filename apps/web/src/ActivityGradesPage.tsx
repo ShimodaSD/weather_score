@@ -1,3 +1,4 @@
+import GarminSyncProgress, { useGarminSyncProgress } from './GarminSyncProgress'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchActivityGrades, fetchActivityIndex, startActivityGrade, syncGarminActivities, type ActivityGrade, type ActivityIndex } from './api'
 
@@ -35,6 +36,10 @@ export default function ActivityGradesPage({ token, onTokenChange, onSignIn }: {
     } finally { if (!quiet) setLoading(false) }
   }, [token, onTokenChange])
 
+  const refreshGrades = useCallback(() => { void load(true) }, [load])
+  const syncProgress = useGarminSyncProgress(apiBase, token, syncing, refreshGrades)
+  const syncActive = syncing || syncProgress.active
+
   useEffect(() => { void load() }, [load])
   const processing = grades.some((grade) => grade.status === 'processing')
   useEffect(() => {
@@ -60,7 +65,7 @@ export default function ActivityGradesPage({ token, onTokenChange, onSignIn }: {
   }
 
   async function syncGarmin() {
-    if (syncing) return
+    if (syncActive) return
     setSyncing(true)
     setSyncMessage('')
     setError('')
@@ -78,7 +83,8 @@ export default function ActivityGradesPage({ token, onTokenChange, onSignIn }: {
   }
 
   return <main id="main" className="grades-page">
-    <header className="grades-hero"><div><span className="eyebrow">ROUTE WEATHER, EVERY 200 METRES</span><h1>Activity grades<span className="brand-dot">.</span></h1><p>Match every Garmin route section to historical hourly weather from its recorded date, time, and location.</p></div><div className="grades-hero-tools"><div className="grades-count"><strong>{grades.filter((grade) => grade.status === 'complete').length}</strong><span>routes graded</span></div>{token && <button className="garmin-sync" type="button" disabled={syncing} onClick={() => { void syncGarmin() }}>{syncing ? 'Syncing…' : 'Get new data'}</button>}</div></header>
+    <header className="grades-hero"><div><span className="eyebrow">ROUTE WEATHER, EVERY 200 METRES</span><h1>Activity grades<span className="brand-dot">.</span></h1><p>Match every Garmin route section to historical hourly weather from its recorded date, time, and location.</p></div><div className="grades-hero-tools"><div className="grades-count"><strong>{grades.filter((grade) => grade.status === 'complete').length}</strong><span>routes graded</span></div>{token && <button className="garmin-sync" type="button" disabled={syncActive} onClick={() => { void syncGarmin() }}>{syncActive ? 'Syncing…' : 'Get new data'}</button>}</div></header>
+    {token && <GarminSyncProgress {...syncProgress} syncing={syncing} />}
     {token && syncMessage && <p className="garmin-sync-message" role="status">{syncMessage}</p>}
     {!token ? <section className="predictions-state"><h2>Grade your Garmin routes</h2><p>Sign in to choose an activity and process its historical weather.</p><button className="header-auth" type="button" onClick={onSignIn}>Sign in</button></section>
       : loading ? <p className="dashboard-state" role="status">Loading activities and grades…</p>
