@@ -1,5 +1,5 @@
 import GarminSyncProgress, { useGarminSyncProgress } from './GarminSyncProgress'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { SESSION_AUTH, fetchAccessToken, fetchActivityIndex, fetchActivitySummary, fetchActivityGrades, startActivityGrade, syncGarminActivities, type Activity, type ActivityIndex, type ActivityGrade } from './api'
 import ActivityTssPanel from './ActivityTssPanel'
 import WeeklyTssCard from './WeeklyTssCard'
@@ -43,7 +43,11 @@ export default function Activities({ token, onTokenChange }: { token: string; on
   const [startingGradeId, setStartingGradeId] = useState('')
   const [gradeStartError, setGradeStartError] = useState<{ id: string; message: string } | null>(null)
   const [syncing, setSyncing] = useState(false)
-  const syncProgress = useGarminSyncProgress(apiBase, token, syncing)
+  const refreshActivities = useCallback(() => {
+    setIndexRetry((value) => value + 1)
+    setSummaryRetry((value) => value + 1)
+  }, [])
+  const syncProgress = useGarminSyncProgress(apiBase, token, syncing, refreshActivities)
   const syncActive = syncing || syncProgress.active
   const [syncMessage, setSyncMessage] = useState('')
   const [syncError, setSyncError] = useState('')
@@ -92,8 +96,7 @@ export default function Activities({ token, onTokenChange }: { token: string; on
     setSyncError('')
     try {
       const result = await syncGarminActivities(apiBase, token)
-      setIndexRetry((value) => value + 1)
-      setSummaryRetry((value) => value + 1)
+      refreshActivities()
       setSyncMessage(`${result.new_activities} new Garmin ${result.new_activities === 1 ? 'activity' : 'activities'} imported.`)
     } catch (reason) {
       if (reason instanceof Error && reason.message.includes('sign-in expired')) onTokenChange('')

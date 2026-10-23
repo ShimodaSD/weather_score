@@ -16,8 +16,6 @@ export default function ActivityGradesPage({ token, onTokenChange, onSignIn }: {
   const [error, setError] = useState('')
   const [startingId, setStartingId] = useState('')
   const [syncing, setSyncing] = useState(false)
-  const syncProgress = useGarminSyncProgress(apiBase, token, syncing)
-  const syncActive = syncing || syncProgress.active
   const [syncMessage, setSyncMessage] = useState('')
 
   const load = useCallback(async (quiet = false) => {
@@ -37,6 +35,10 @@ export default function ActivityGradesPage({ token, onTokenChange, onSignIn }: {
       setError(message)
     } finally { if (!quiet) setLoading(false) }
   }, [token, onTokenChange])
+
+  const refreshGrades = useCallback(() => { void load(true) }, [load])
+  const syncProgress = useGarminSyncProgress(apiBase, token, syncing, refreshGrades)
+  const syncActive = syncing || syncProgress.active
 
   useEffect(() => { void load() }, [load])
   const processing = grades.some((grade) => grade.status === 'processing')

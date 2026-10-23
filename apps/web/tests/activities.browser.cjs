@@ -11,6 +11,7 @@ async function main() {
     let listSize = 1
     let trainingWeeks = 0
     let syncs = 0
+    let restoredTss = 100
     let weeks = 0
     let indexes = 0
     let summaries = 0
@@ -69,11 +70,11 @@ async function main() {
           start.setUTCDate(start.getUTCDate() + index * 7)
           const end = new Date(start)
           end.setUTCDate(end.getUTCDate() + 6)
-          return { week_start: start.toISOString().slice(0, 10), week_end: end.toISOString().slice(0, 10), tss: syncs ? 120 : 100, threshold_heart_rate_bpm: 157, scored_activity_count: 2, excluded_activity_count: 0, running_km: 10, cycling_km: 30 }
+          return { week_start: start.toISOString().slice(0, 10), week_end: end.toISOString().slice(0, 10), tss: syncs ? 120 : restoredTss, threshold_heart_rate_bpm: 157, scored_activity_count: 2, excluded_activity_count: 0, running_km: 10, cycling_km: 30 }
         })
       } else if (path.endsWith('/tss/weekly')) {
         weeks++
-        data = { week_start: '2026-09-21', week_end: '2026-09-27', tss: syncs ? 120 : 100, threshold_heart_rate_bpm: 157, scored_activity_count: 2, excluded_activity_count: 0 }
+        data = { week_start: '2026-09-21', week_end: '2026-09-27', tss: syncs ? 120 : restoredTss, threshold_heart_rate_bpm: 157, scored_activity_count: 2, excluded_activity_count: 0 }
       } else return route.fulfill({ status: 422, json: { detail: 'No heart rate recorded' } })
       await route.fulfill({ json: data })
     })
@@ -84,10 +85,25 @@ async function main() {
     await page.reload()
     await page.getByText('2 of 6 files downloaded · 4 remaining', { exact: true }).waitFor()
     await page.getByRole('link', { name: 'Route grades', exact: true }).click()
+    await page.locator('main.grades-page .grade-list').waitFor()
     await page.getByText('2 of 6 files downloaded · 4 remaining', { exact: true }).waitFor()
     assert.equal(await page.getByRole('button', { name: 'Syncing…' }).isDisabled(), true)
     assert.equal(syncs, 0)
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
+    const gradesBeforeRestore = { indexes, grades }
+    listSize = 2
+    processing = false
     downloadProgress = { phase: 'complete', downloaded_files: 6, total_files: 6 }
+    await page.clock.fastForward(30_000)
+    await page.getByText('2 Garmin activities ready to grade.', { exact: true }).waitFor()
+    assert.ok(indexes > gradesBeforeRestore.indexes && grades > gradesBeforeRestore.grades)
+    const gradesAfterRestore = { indexes, grades }
+    const repeatedComplete = page.waitForResponse('**/activities/sync/status')
+    await page.clock.fastForward(30_000)
+    await repeatedComplete
+    assert.deepEqual({ indexes, grades }, gradesAfterRestore)
+    await page.clock.resume()
+    processing = true
     await page.getByRole('link', { name: 'Activities', exact: true }).click()
     await page.getByRole('button', { name: 'Get new data' }).waitFor()
     assert.equal(await page.getByRole('progressbar', { name: 'Garmin files downloaded' }).count(), 0)
@@ -98,6 +114,29 @@ async function main() {
     assert.equal(await grade.getByRole('link').count(), 0)
     assert.equal(await page.getByRole('link', { name: 'Edit your threshold in Profile' }).count(), 0)
     await page.locator('.activity-row').getByText('Grade: 87 / 100').waitFor()
+    downloadProgress = { phase: 'downloading', downloaded_files: 2, total_files: 6 }
+    await page.reload()
+    await page.getByText('2 of 6 files downloaded · 4 remaining', { exact: true }).waitFor()
+    await grade.getByText('Grade: 87 / 100', { exact: true }).waitFor()
+    await page.getByLabel('Current week TSS').getByText('100.0', { exact: true }).waitFor()
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
+    const dashboardBeforeRestore = { weeks, trainingWeeks, indexes, summaries, grades }
+    listSize = 3
+    restoredTss = 110
+    downloadProgress = { phase: 'complete', downloaded_files: 6, total_files: 6 }
+    await page.clock.fastForward(30_000)
+    await page.getByLabel('Current week TSS').getByText('110.0', { exact: true }).waitFor()
+    await grade.getByText('Grade: 87 / 100', { exact: true }).waitFor()
+    assert.equal(await page.locator('.activity-row').count(), 3)
+    assert.ok(weeks > dashboardBeforeRestore.weeks && trainingWeeks > dashboardBeforeRestore.trainingWeeks
+      && indexes > dashboardBeforeRestore.indexes && summaries > dashboardBeforeRestore.summaries && grades > dashboardBeforeRestore.grades)
+    assert.equal(syncs, 0)
+    const dashboardAfterRestore = { weeks, trainingWeeks, indexes, summaries, grades }
+    const unchangedComplete = page.waitForResponse('**/activities/sync/status')
+    await page.clock.fastForward(30_000)
+    await unchangedComplete
+    assert.deepEqual({ weeks, trainingWeeks, indexes, summaries, grades }, dashboardAfterRestore)
+    await page.clock.resume()
     const before = { weeks, trainingWeeks, indexes, summaries, grades }
     await page.setViewportSize({ width: 375, height: 900 })
     await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth)
@@ -128,7 +167,8 @@ async function main() {
     assert.equal(await progress.count(), 0)
     await page.getByLabel('Current week TSS').getByText('120.0', { exact: true }).waitFor()
     await grade.getByText('Grade: 87 / 100', { exact: true }).waitFor()
-    assert.ok(weeks > before.weeks && trainingWeeks > before.trainingWeeks && indexes > before.indexes && summaries > before.summaries && grades > before.grades)
+    assert.deepEqual({ indexes, summaries, grades }, { indexes: before.indexes + 1, summaries: before.summaries + 1, grades: before.grades + 1 })
+    assert.ok(weeks > before.weeks && trainingWeeks > before.trainingWeeks)
     await page.getByRole('button', { name: 'Get new data' }).click()
     await page.getByRole('alert').filter({ hasText: 'Sync failed' }).waitFor()
     const messageBounds = await page.locator('.activity-dashboard > .error-message').boundingBox()

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchGarminSyncProgress, type GarminSyncProgress as SyncProgress } from './api'
 
-export function useGarminSyncProgress(baseUrl: string, token: string, syncing: boolean) {
+export function useGarminSyncProgress(baseUrl: string, token: string, syncing: boolean, onRestoredComplete: () => void) {
   const [progress, setProgress] = useState<SyncProgress | null>(null)
   const [unavailable, setUnavailable] = useState(false)
 
@@ -10,11 +10,17 @@ export function useGarminSyncProgress(baseUrl: string, token: string, syncing: b
     setUnavailable(false)
     if (!token) return
     let cancelled = false
+    let wasActive = false
     let timer: ReturnType<typeof setTimeout>
     async function poll() {
       try {
         const next = await fetchGarminSyncProgress(baseUrl, token)
-        if (!cancelled) { setProgress(next); setUnavailable(false) }
+        if (!cancelled) {
+          if (!syncing && wasActive && next.phase === 'complete') onRestoredComplete()
+          wasActive = ['checking', 'downloading', 'importing'].includes(next.phase)
+          setProgress(next)
+          setUnavailable(false)
+        }
       } catch {
         if (!cancelled) setUnavailable(true)
       }
@@ -22,7 +28,7 @@ export function useGarminSyncProgress(baseUrl: string, token: string, syncing: b
     }
     void poll()
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [baseUrl, token, syncing])
+  }, [baseUrl, token, syncing, onRestoredComplete])
 
   const active = progress !== null && ['checking', 'downloading', 'importing'].includes(progress.phase)
   return { progress, unavailable, active }

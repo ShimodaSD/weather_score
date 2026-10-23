@@ -54,7 +54,11 @@ an unavailable message while the sync request continues.
 The protected `GET /activities/sync/status` endpoint returns `phase`,
 `downloaded_files`, and nullable `total_files`; both pages query immediately, then every 30 seconds
 while authenticated, including on page entry. An active sync is restored after
-a refresh or navigation, and disables duplicate sync requests. The existing POST response is unchanged.
+a refresh or navigation, and disables duplicate sync requests. When a restored
+sync changes from active to complete, the page reloads its activity data and
+dashboard totals once. Repeated complete responses do not reload data; syncs
+started on the page continue to refresh through their POST completion path.
+The existing POST response is unchanged.
 Progress and the sync lock belong to the single API process used by Compose;
 multiple API workers would require shared job state. The downloader instrumentation
 targets the pinned GarminDB 3.9 implementation and must be reviewed on upgrades.
