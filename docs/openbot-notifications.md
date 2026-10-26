@@ -32,7 +32,7 @@ secret. Authentication uses these headers:
 
 - `x-openbot-timestamp`: current Unix timestamp in seconds.
 - `x-openbot-delivery-id`: a new UUID for each delivery attempt.
-- `x-openbot-signature`: lowercase hexadecimal HMAC-SHA256, without a prefix.
+- `x-openbot-signature`: `sha256=` followed by lowercase hexadecimal HMAC-SHA256.
 
 The signed message is the UTF-8 timestamp, a dot, the delivery ID, another dot,
 and the exact JSON body bytes sent over HTTPS. The body is serialized once;
@@ -42,9 +42,15 @@ uses the delivery time so reruns do not reuse an old timestamp.
 
 Merge the script into the default branch before testing: the workflow checks
 out that trusted branch rather than PR code. No Python dependencies are needed.
-A non-2xx response or network failure fails the action. Requests time out after
+A response other than 200 or 202, or a network failure, fails the action. UTF-8
+request bodies over 64 KiB are rejected before sending. Requests time out after
 30 seconds and redirects are rejected. Failed deliveries can be retried by
 rerunning the workflow; reruns can produce repeat messages.
+
+This follows the [OpenBot webhook contract](https://github.com/nightly-labs/openbot/blob/main/docs/webhooks.md).
+The host clock must be within five minutes of the sender. HTTP 202 acknowledges
+receipt, not completion of the routine. The script does not automatically retry;
+each workflow rerun creates a new delivery ID rather than deduplicating the event.
 
 GitHub withholds repository secrets for review workflows from fork PRs, so
 this workflow cannot deliver those notifications with its current triggers.

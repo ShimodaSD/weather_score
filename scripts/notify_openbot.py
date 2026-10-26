@@ -1,19 +1,15 @@
-
 """Forward Codex pull-request reviews to an OpenBot webhook."""
 
 import hmac
 import http.client
 import json
 import os
-import socket
 import sys
 import time
-
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
-
 
 CODEX_LOGIN = "chatgpt-codex-connector[bot]"
 REPOSITORY = "ShimodaSD/weather_score"
@@ -39,10 +35,7 @@ def create_notification(event: dict) -> dict | None:
     reviewer = event.get("review", {}).get("user", {}).get("login")
 
     if sender != CODEX_LOGIN or reviewer != CODEX_LOGIN:
-        print(
-            "Skipping event: review was not submitted "
-            "by the Codex bot."
-        )
+        print("Skipping event: review was not submitted by the Codex bot.")
         return None
 
     pr_number = event.get("pull_request", {}).get("number")
@@ -56,9 +49,7 @@ def create_notification(event: dict) -> dict | None:
         "type": "pull_request_review",
         "occurredAt": (
             event["review"].get("submitted_at")
-            or datetime.now(UTC)
-            .isoformat(timespec="seconds")
-            .replace("+00:00", "Z")
+            or datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
         ),
         "data": event,
     }
@@ -86,9 +77,7 @@ def send_notification(
         )
 
     if not secret:
-        raise ValueError(
-            "OPENBOT_WEBHOOK_SECRET is missing or empty."
-        )
+        raise ValueError("OPENBOT_WEBHOOK_SECRET is missing or empty.")
 
     body = json.dumps(
         payload,
@@ -96,12 +85,13 @@ def send_notification(
         separators=(",", ":"),
     ).encode("utf-8")
 
+    if len(body) > 64 * 1024:
+        raise ValueError("OpenBot webhook body exceeds 64 KiB.")
+
     timestamp = str(int(time.time()))
     delivery_id = str(uuid4())
 
-    signed_message = (
-        f"{timestamp}.{delivery_id}.".encode("utf-8") + body
-    )
+    signed_message = f"{timestamp}.{delivery_id}.".encode() + body
 
     signature = hmac.new(
         secret.encode("utf-8"),
@@ -114,7 +104,7 @@ def send_notification(
         "User-Agent": "weather-score-codex-review/1.0",
         "x-openbot-timestamp": timestamp,
         "x-openbot-delivery-id": delivery_id,
-        "x-openbot-signature": signature,
+        "x-openbot-signature": f"sha256={signature}",
     }
 
     path = target.path or "/"
@@ -140,16 +130,13 @@ def send_notification(
 
         response = connection.getresponse()
         status = response.status
-        response_body = response.read(4096)
+        response.read(4096)
 
         print(f"OpenBot HTTP status: {status}")
 
-        if not 200 <= status < 300:
-            # Do not print arbitrary server response bodies:
-            # they may contain credentials or sensitive data.
+        if status not in (200, 202):
             raise RuntimeError(
-                f"OpenBot webhook returned HTTP {status} "
-                f"({response.reason})"
+                f"OpenBot webhook returned HTTP {status} ({response.reason})"
             )
 
         print("OpenBot notification delivered successfully.")
@@ -167,13 +154,9 @@ def main() -> int:
         event_path = os.environ.get("GITHUB_EVENT_PATH")
 
         if not event_path:
-            raise ValueError(
-                "GITHUB_EVENT_PATH environment variable is missing."
-            )
+            raise ValueError("GITHUB_EVENT_PATH environment variable is missing.")
 
-        event = json.loads(
-            Path(event_path).read_text(encoding="utf-8")
-        )
+        event = json.loads(Path(event_path).read_text(encoding="utf-8"))
 
         payload = create_notification(event)
 
@@ -182,19 +165,13 @@ def main() -> int:
             return 0
 
         webhook_url = os.environ.get("OPENBOT_WEBHOOK_URL", "")
-        webhook_secret = os.environ.get(
-            "OPENBOT_WEBHOOK_SECRET", ""
-        )
+        webhook_secret = os.environ.get("OPENBOT_WEBHOOK_SECRET", "")
 
         if not webhook_url:
-            raise ValueError(
-                "OPENBOT_WEBHOOK_URL GitHub secret is missing."
-            )
+            raise ValueError("OPENBOT_WEBHOOK_URL GitHub secret is missing.")
 
         if not webhook_secret:
-            raise ValueError(
-                "OPENBOT_WEBHOOK_SECRET GitHub secret is missing."
-            )
+            raise ValueError("OPENBOT_WEBHOOK_SECRET GitHub secret is missing.")
 
         send_notification(
             url=webhook_url,
@@ -203,18 +180,17 @@ def main() -> int:
         )
 
     except (
+        TimeoutError,
         OSError,
         ValueError,
         KeyError,
         TypeError,
         json.JSONDecodeError,
         http.client.HTTPException,
-        socket.timeout,
         RuntimeError,
     ) as error:
         print(
-            f"Open Bot notification failed: "
-            f"{type(error).__name__}: {error}",
+            f"Open Bot notification failed: {type(error).__name__}",
             file=sys.stderr,
         )
         return 1
