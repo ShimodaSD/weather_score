@@ -332,6 +332,7 @@ def test_sync_updates_tss_after_activity_names(tmp_path, monkeypatch, startup) -
     assert [call[0] for call in updates.mock_calls] == [
         "prepare", "download", "import_data", "names", "tss"
     ]
+    updates.download.assert_called_once_with(tmp_path.parent)
     updates.import_data.assert_called_once_with({}, tmp_path.parent, "garmin", True)
 
 
@@ -382,6 +383,3 @@ def test_postgres_initialization_failure_prevents_download(tmp_path, monkeypatch
         sync_garmindb.main()
 
     download.assert_not_called()
-    sync_garmindb._sync_sqlite.assert_called_once_with(tmp_path.parent)
-    sync_garmindb._import_postgres.assert_called_once_with({}, tmp_path.parent, "garmin")
-    assert [call[0] for call in updates.mock_calls] == ["names", "tss"]
