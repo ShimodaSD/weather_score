@@ -91,6 +91,9 @@ exists, no times are returned. Using training activity moving times rather
 than confirmed maximal race efforts is a local adaptation, so the paper's
 reported race-prediction accuracy must not be applied to these estimates.
 
+See [data to provide for better running predictions](running-prediction-data.md)
+for collection priorities, a fill-in template, and PubMed references.
+
 ## Activity route grades
 
 Route grading reads Garmin record distance, timestamp, latitude, and longitude.
