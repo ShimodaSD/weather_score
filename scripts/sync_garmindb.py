@@ -187,7 +187,45 @@ def _prepare_postgres_database(database_name: str) -> bool:
             }
     except psycopg.Error:
         _fail_sync("cannot create or inspect the Garmin PostgreSQL database")
-    return schemas != {"garmin", "garmin_activities", "garmin_monitoring"}
+    full_import = schemas != {"garmin", "garmin_activities", "garmin_monitoring"}
+    _initialize_postgres_tables(database_name)
+    return full_import
+
+
+def _initialize_postgres_tables(database_name: str) -> None:
+    """Create GarminDB tables before downloading any Garmin data."""
+    from garmindb.garmindb import (
+        ActivitiesDb,
+        GarminDb,
+        GarminSummaryDb,
+        MonitoringDb,
+    )
+    from garmindb.summarydb import SummaryDb
+    from idbutils import DbParams
+    from sqlalchemy.exc import SQLAlchemyError
+
+    parameters = _get_postgres_parameters(database_name)
+    db_params = DbParams(
+        db_type="postgresql",
+        db_username=parameters["user"],
+        db_password=parameters["password"],
+        db_host=parameters["host"],
+        db_port=int(parameters["port"]),
+        pg_database=database_name,
+    )
+    try:
+        for database_type in (
+            GarminDb, ActivitiesDb, MonitoringDb, GarminSummaryDb, SummaryDb,
+        ):
+            database = database_type(db_params)
+            database.engine.dispose()
+        with psycopg.connect(**parameters) as connection:
+            connection.execute(
+                "ALTER TABLE garmin_activities.activities "
+                "ADD COLUMN IF NOT EXISTS tss double precision"
+            )
+    except (psycopg.Error, SQLAlchemyError, RuntimeError):
+        _fail_sync("cannot initialize Garmin PostgreSQL tables")
 
 
 def _postgres_sync_needed(database_name: str) -> bool:
@@ -212,9 +250,9 @@ def _postgres_sync_needed(database_name: str) -> bool:
 
 
 def _import_postgres(
-    config: dict[str, object], working_directory: Path, database_name: str
+    config: dict[str, object], working_directory: Path, database_name: str,
+    full_import: bool,
 ) -> None:
-    full_import = _prepare_postgres_database(database_name)
     postgres_config = deepcopy(config)
     parameters = _get_postgres_parameters(database_name)
     postgres_config["db"] = {
@@ -372,12 +410,14 @@ def main() -> None:
         Path(configured_source).expanduser().resolve() if configured_source else None
     )
     _bootstrap_database(target, source)
+    postgres_database = os.environ.get("DB_NAME_GARMIN")
+    if postgres_database:
+        full_import = _prepare_postgres_database(postgres_database)
     _sync_sqlite(data_directory.parent)
     if not _validate_database(target, "activities"):
         _fail_sync(f"refresh did not create a valid activities database at {target}")
-    postgres_database = os.environ.get("DB_NAME_GARMIN")
     if postgres_database:
-        _import_postgres(config, data_directory.parent, postgres_database)
+        _import_postgres(config, data_directory.parent, postgres_database, full_import)
         names = _sync_postgres_activity_names(target, postgres_database)
         print(f"garmin-sync: copied {names} activity names to PostgreSQL")
         scored, excluded = _sync_postgres_activity_tss(postgres_database)

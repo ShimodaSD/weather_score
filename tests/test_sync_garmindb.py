@@ -319,13 +319,67 @@ def test_sync_updates_tss_after_activity_names(tmp_path, monkeypatch, startup) -
         monkeypatch.setattr(sync_garmindb, name, MagicMock())
     monkeypatch.setattr(sync_garmindb, "_validate_database", lambda *_: True)
     updates = MagicMock()
+    updates.prepare.return_value = True
+    monkeypatch.setattr(sync_garmindb, "_prepare_postgres_database", updates.prepare)
+    monkeypatch.setattr(sync_garmindb, "_sync_sqlite", updates.download)
+    monkeypatch.setattr(sync_garmindb, "_import_postgres", updates.import_data)
     updates.names.return_value = 5
     updates.tss.return_value = (4, 1)
     monkeypatch.setattr(sync_garmindb, "_sync_postgres_activity_names", updates.names)
     monkeypatch.setattr(sync_garmindb, "_sync_postgres_activity_tss", updates.tss)
 
     sync_garmindb.main()
+    assert [call[0] for call in updates.mock_calls] == [
+        "prepare", "download", "import_data", "names", "tss"
+    ]
+    updates.download.assert_called_once_with(tmp_path.parent)
+    updates.import_data.assert_called_once_with({}, tmp_path.parent, "garmin", True)
 
-    sync_garmindb._sync_sqlite.assert_called_once_with(tmp_path.parent)
-    sync_garmindb._import_postgres.assert_called_once_with({}, tmp_path.parent, "garmin")
-    assert [call[0] for call in updates.mock_calls] == ["names", "tss"]
+
+def test_initializes_all_postgres_tables(monkeypatch) -> None:
+    import garmindb.garmindb as databases
+    import garmindb.summarydb as summaries
+
+    monkeypatch.setattr(
+        sync_garmindb, "_get_postgres_parameters",
+        lambda _: {"user": "user", "password": "test", "host": "localhost", "port": "5432"},
+    )
+    constructors = []
+    for module, name in [
+        (databases, "GarminDb"), (databases, "ActivitiesDb"),
+        (databases, "MonitoringDb"), (databases, "GarminSummaryDb"),
+        (summaries, "SummaryDb"),
+    ]:
+        constructor = MagicMock()
+        monkeypatch.setattr(module, name, constructor)
+        constructors.append(constructor)
+    connection = MagicMock()
+    monkeypatch.setattr(sync_garmindb.psycopg, "connect", connection)
+
+    sync_garmindb._initialize_postgres_tables("garmin")
+
+    for constructor in constructors:
+        assert constructor.call_args.args[0].pg_database == "garmin"
+        constructor.return_value.engine.dispose.assert_called_once()
+    assert "ADD COLUMN IF NOT EXISTS tss" in (
+        connection.return_value.__enter__.return_value.execute.call_args.args[0]
+    )
+
+
+def test_postgres_initialization_failure_prevents_download(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT)])
+    monkeypatch.setenv("GARMINDB_PATH", str(tmp_path / "garmin_activities.db"))
+    monkeypatch.setenv("DB_NAME_GARMIN", "garmin")
+    monkeypatch.setattr(sync_garmindb, "_get_garmin_config", lambda _: (tmp_path, {}))
+    monkeypatch.setattr(sync_garmindb, "_bootstrap_database", MagicMock())
+    monkeypatch.setattr(
+        sync_garmindb, "_prepare_postgres_database",
+        MagicMock(side_effect=SystemExit("initialization failed")),
+    )
+    download = MagicMock()
+    monkeypatch.setattr(sync_garmindb, "_sync_sqlite", download)
+
+    with pytest.raises(SystemExit, match="initialization failed"):
+        sync_garmindb.main()
+
+    download.assert_not_called()
