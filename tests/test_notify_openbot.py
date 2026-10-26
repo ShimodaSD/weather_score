@@ -39,6 +39,25 @@ def test_create_review_notification(review_event):
     }
 
 
+@pytest.mark.parametrize("state", ["open", "closed"])
+def test_notify_new_commits_on_open_pr(review_event, state):
+    event = review_event
+    event["action"] = "synchronize"
+    event["sender"]["login"] = "contributor"
+    del event["review"]
+    event["pull_request"].update(state=state, updated_at="2026-10-26T12:00:00Z")
+    event.update(before="old-sha", after="new-sha")
+    notification = create_notification(event)
+    if state == "closed":
+        assert notification is None
+    else:
+        assert notification == {
+            "type": "pull_request",
+            "occurredAt": "2026-10-26T12:00:00Z",
+            "data": event,
+        }
+
+
 @pytest.mark.parametrize("body", [None, "", "  "])
 def test_forward_reviews_without_findings(review_event, body):
     review_event["review"]["body"] = body

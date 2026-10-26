@@ -1,4 +1,4 @@
-"""Forward Codex pull-request reviews to an OpenBot webhook."""
+"""Forward pull-request commits and Codex reviews to an OpenBot webhook."""
 
 import hmac
 import http.client
@@ -17,14 +17,18 @@ WEBHOOK_TIMEOUT = 30
 
 
 def create_notification(event: dict) -> dict | None:
-    """Create a notification from a submitted Codex review."""
+    """Create a notification from an open PR update or submitted Codex review."""
 
     if event.get("repository", {}).get("full_name") != REPOSITORY:
         print("Skipping event: repository does not match.")
         return None
 
-    if event.get("action") != "submitted":
-        print("Skipping event: not a submitted review.")
+    is_update = event.get("action") == "synchronize"
+    if is_update and event.get("pull_request", {}).get("state") != "open":
+        return None
+
+    if not is_update and event.get("action") != "submitted":
+        print("Skipping event: not a PR update or submitted review.")
         return None
 
     if "comment" in event:
@@ -34,7 +38,7 @@ def create_notification(event: dict) -> dict | None:
     sender = event.get("sender", {}).get("login")
     reviewer = event.get("review", {}).get("user", {}).get("login")
 
-    if sender != CODEX_LOGIN or reviewer != CODEX_LOGIN:
+    if not is_update and (sender != CODEX_LOGIN or reviewer != CODEX_LOGIN):
         print("Skipping event: review was not submitted by the Codex bot.")
         return None
 
@@ -43,12 +47,16 @@ def create_notification(event: dict) -> dict | None:
     if type(pr_number) is not int or pr_number <= 0:
         raise ValueError("A valid pull request number is required.")
 
-    print(f"Processing Codex review for PR #{pr_number}")
+    print(f"Processing notification for PR #{pr_number}")
 
     return {
-        "type": "pull_request_review",
+        "type": "pull_request" if is_update else "pull_request_review",
         "occurredAt": (
-            event["review"].get("submitted_at")
+            (
+                event["pull_request"].get("updated_at")
+                if is_update
+                else event["review"].get("submitted_at")
+            )
             or datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
         ),
         "data": event,
@@ -118,7 +126,7 @@ def send_notification(
         timeout=WEBHOOK_TIMEOUT,
     )
 
-    print("Sending Codex review notification to OpenBot...")
+    print("Sending PR notification to OpenBot...")
 
     try:
         connection.request(
@@ -148,7 +156,7 @@ def send_notification(
 def main() -> int:
     """Read GitHub Actions event and notify OpenBot."""
 
-    print("Starting Codex review notification workflow...")
+    print("Starting PR notification workflow...")
 
     try:
         event_path = os.environ.get("GITHUB_EVENT_PATH")
@@ -161,7 +169,7 @@ def main() -> int:
         payload = create_notification(event)
 
         if payload is None:
-            print("No matching Codex review event to forward.")
+            print("No matching PR event to forward.")
             return 0
 
         webhook_url = os.environ.get("OPENBOT_WEBHOOK_URL", "")
@@ -195,7 +203,7 @@ def main() -> int:
         )
         return 1
 
-    print("Codex review successfully forwarded to OpenBot.")
+    print("PR event successfully forwarded to OpenBot.")
     return 0
 
 
