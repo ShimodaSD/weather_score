@@ -1,11 +1,11 @@
 import GarminSyncProgress, { useGarminSyncProgress } from './GarminSyncProgress'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { SESSION_AUTH, fetchAccessToken, fetchActivityIndex, fetchActivitySummary, fetchActivityGrades, startActivityGrade, syncGarminActivities, type Activity, type ActivityIndex, type ActivityGrade } from './api'
+import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent } from 'react'
+import { SESSION_AUTH, fetchAccessToken, fetchActivityIndex, fetchActivitySummary, fetchActivityGrades, fetchWeeklyTraining, startActivityGrade, syncGarminActivities, type Activity, type ActivityIndex, type ActivityGrade, type WeeklyTraining } from './api'
 import ActivityTssPanel from './ActivityTssPanel'
 import WeeklyTssCard from './WeeklyTssCard'
-import WeeklyTrainingChart from './WeeklyTrainingChart'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+const WeeklyTrainingChart = lazy(() => import('./WeeklyTrainingChart'))
 export const formatNumber = (value: number | null | undefined, unit = '', digits = 0) => value == null ? '—' : `${value.toFixed(digits)}${unit}`
 export const formatDuration = (seconds: number | null | undefined) => {
   if (seconds == null) return '—'
@@ -40,6 +40,9 @@ export default function Activities({ token, onTokenChange }: { token: string; on
   const [gradesError, setGradesError] = useState('')
   const [gradesLoading, setGradesLoading] = useState(true)
   const [gradesRetry, setGradesRetry] = useState(0)
+  const [trainingWeeks, setTrainingWeeks] = useState<WeeklyTraining[] | null>(null)
+  const [trainingError, setTrainingError] = useState('')
+  const [trainingRetry, setTrainingRetry] = useState(0)
   const [startingGradeId, setStartingGradeId] = useState('')
   const [gradeStartError, setGradeStartError] = useState<{ id: string; message: string } | null>(null)
   const [syncing, setSyncing] = useState(false)
@@ -132,6 +135,21 @@ export default function Activities({ token, onTokenChange }: { token: string; on
     return () => { cancelled = true }
   }, [token, onTokenChange, indexRetry])
 
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    setTrainingWeeks(null)
+    setTrainingError('')
+    fetchWeeklyTraining(apiBase, token).then((weeks) => {
+      if (!cancelled) setTrainingWeeks(weeks)
+    }).catch((reason) => {
+      if (cancelled) return
+      if (reason instanceof Error && reason.message.includes('sign-in expired')) onTokenChange('')
+      setTrainingError(reason instanceof Error ? reason.message : 'Could not load weekly training.')
+    })
+    return () => { cancelled = true }
+  }, [token, onTokenChange, indexRetry, trainingRetry])
+
   const sports = [...new Set(activities.map((activity) => activity.activity_type))].sort()
   const weekStart = new Date()
   weekStart.setDate(weekStart.getDate() - (weekStart.getDay() + 6) % 7)
@@ -193,8 +211,8 @@ export default function Activities({ token, onTokenChange }: { token: string; on
     {token && syncMessage && <p className="garmin-sync-message" role="status">{syncMessage}</p>}
     {token && syncError && <p className="error-message" role="alert">{syncError}</p>}
     {!token ? <section className="dashboard-login" aria-labelledby="activities-signin"><div><span className="eyebrow">WELCOME BACK</span><h2 id="activities-signin">See your activities</h2><p>Sign in to view the activities saved to your account.</p></div><form onSubmit={signIn}><label htmlFor="activity-username">Username</label><input id="activity-username" className="text-field" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={loading} /><label htmlFor="activity-password">Password</label><input id="activity-password" className="text-field" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={loading} /><button className="submit" disabled={loading}>{loading ? 'Signing in…' : 'Sign in and view activities'}</button>{error && <p className="error-message" role="alert">{error}</p>}</form></section> : <>
-      <section className="dashboard-stats dashboard-stats-weekly" aria-label="Activity totals"><div><span>ALL ACTIVITIES</span><strong>{activities.length}</strong><small>Recorded sessions</small></div><div aria-label="This week’s running and cycling distance"><span>THIS WEEK’S DISTANCE</span><strong>{loading ? '…' : error ? '—' : formatNumber(totalDistance, ' km', 1)}</strong><small>Running + cycling · Mon–Sun</small>{!loading && !error && missingDistances > 0 && <small>{missingDistances} {missingDistances === 1 ? 'activity' : 'activities'} without distance excluded</small>}</div><div><span>MOST RECENT</span><strong className="dashboard-date">{activities[0] ? formatDate(activities[0].started_at) : '—'}</strong><small>Latest recorded activity</small></div><WeeklyTssCard key={indexRetry} token={token} onTokenChange={onTokenChange} /></section>
-      <WeeklyTrainingChart key={indexRetry} token={token} onTokenChange={onTokenChange} />
+      <section className="dashboard-stats dashboard-stats-weekly" aria-label="Activity totals"><div><span>ALL ACTIVITIES</span><strong>{activities.length}</strong><small>Recorded sessions</small></div><div aria-label="This week’s running and cycling distance"><span>THIS WEEK’S DISTANCE</span><strong>{loading ? '…' : error ? '—' : formatNumber(totalDistance, ' km', 1)}</strong><small>Running + cycling · Mon–Sun</small>{!loading && !error && missingDistances > 0 && <small>{missingDistances} {missingDistances === 1 ? 'activity' : 'activities'} without distance excluded</small>}</div><div><span>MOST RECENT</span><strong className="dashboard-date">{activities[0] ? formatDate(activities[0].started_at) : '—'}</strong><small>Latest recorded activity</small></div><WeeklyTssCard data={trainingWeeks?.at(-1) ?? null} error={trainingError} onRetry={() => setTrainingRetry((value) => value + 1)} /></section>
+      <Suspense fallback={<p className="dashboard-state" role="status">Loading weekly chart…</p>}><WeeklyTrainingChart weeks={trainingWeeks} error={trainingError} onRetry={() => setTrainingRetry((value) => value + 1)} /></Suspense>
       <div className="dashboard-grid">
         <section className="activity-list" aria-labelledby="activity-list-title">
           <div className="activity-list-head"><div><span className="eyebrow">YOUR LIBRARY</span><h2 id="activity-list-title">All activities</h2></div><span className="list-count">{shown.length} shown</span></div>

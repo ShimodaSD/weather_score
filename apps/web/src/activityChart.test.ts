@@ -11,10 +11,13 @@ test('activity chart aligns BPM, caps slow pace, and preserves pace faster than 
   assert.equal(series.xUnit, 'minutes')
   assert.deepEqual(series.heartRate, [{ x: 0, y: 150 }, { x: 1, y: 155 }, { x: 2, y: null }])
   assert.deepEqual(series.pace, [{ x: 0, y: 5 }, { x: 1, y: 9 }, { x: 2, y: 6 }])
+  assert.deepEqual(series.rawPace, [{ x: 0, y: 5 }, { x: 1, y: null }, { x: 2, y: 6 }])
   assert.equal(MAX_PACE_MIN_PER_KM, 9)
   assert.equal(MIN_PACE_MIN_PER_KM, 3.75)
   assert.deepEqual(buildActivitySeries([{ speed: 7.5 }, { speed: 6 }, { speed: 20 }, {}, { speed: null }], '2026-09-11T06:30:00Z').pace,
     [{ x: 0, y: 8 }, { x: 1, y: 9 }, { x: 2, y: 3 }, { x: 3, y: 9 }, { x: 4, y: 9 }])
+  assert.deepEqual(buildActivitySeries([{ speed: 7.5 }, { speed: 6 }, { speed: 20 }, {}, { speed: null }], '2026-09-11T06:30:00Z').rawPace,
+    [{ x: 0, y: 8 }, { x: 1, y: 10 }, { x: 2, y: 3 }, { x: 3, y: null }, { x: 4, y: null }])
   assert.deepEqual(PACE_ZONES.map(({ name, fastSeconds, slowSeconds }) => [name, fastSeconds, slowSeconds]), [
     ['Trote', 450, 540], ['Zona 0', 386, 450], ['Zona 1', 346, 386], ['Zona 2', 307, 346],
     ['Zona 3', 284, 307], ['Zona 4', 270, 284], ['Zona 5', 250, 270], ['Zona 6', 225, 250],

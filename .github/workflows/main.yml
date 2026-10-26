@@ -1,7 +1,9 @@
 
-name: Sync Codex Reviews to OpenBot
+name: Sync PR Updates to OpenBot
 
 on:
+  pull_request_target:
+    types: [synchronize]
   pull_request_review:
     types: [submitted]
 
@@ -12,8 +14,12 @@ jobs:
   notify-openbot:
     if: >-
       github.event.repository.full_name == 'ShimodaSD/weather_score' &&
-      github.event.review.user.login == 'chatgpt-codex-connector[bot]' &&
-      github.event.sender.login == 'chatgpt-codex-connector[bot]'
+      ((github.event_name == 'pull_request_target' &&
+        github.event.action == 'synchronize' &&
+        github.event.pull_request.state == 'open') ||
+       (github.event_name == 'pull_request_review' &&
+        github.event.review.user.login == 'chatgpt-codex-connector[bot]' &&
+        github.event.sender.login == 'chatgpt-codex-connector[bot]'))
     runs-on: ubuntu-latest
 
     steps:
