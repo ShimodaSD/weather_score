@@ -46,7 +46,7 @@ async function main() {
       } else if (path.endsWith('/profile')) {
         data = { name: 'Runner', threshold_heart_rate_bpm: 157 }
       } else if (path.endsWith('/activities/1')) {
-        data = { ...activity, activity: {}, laps: [], splits: [], records: [{ timestamp: activity.started_at, hr: 150, speed: 10 }], devices: [] }
+        data = { ...activity, activity: {}, laps: [], splits: [], records: Array.from({ length: 501 }, (_, index) => ({ timestamp: new Date(Date.parse(activity.started_at) + index * 1000).toISOString(), hr: 150, speed: index === 0 ? 0 : index === 1 ? 6 : 10 })), devices: [] }
       } else if (path.endsWith('/summary')) {
         summaries++
         data = activity
@@ -128,8 +128,9 @@ async function main() {
     await page.getByLabel('Current week TSS').getByText('110.0', { exact: true }).waitFor()
     await grade.getByText('Grade: 87 / 100', { exact: true }).waitFor()
     assert.equal(await page.locator('.activity-row').count(), 3)
-    assert.ok(weeks > dashboardBeforeRestore.weeks && trainingWeeks > dashboardBeforeRestore.trainingWeeks
+    assert.ok(trainingWeeks > dashboardBeforeRestore.trainingWeeks
       && indexes > dashboardBeforeRestore.indexes && summaries > dashboardBeforeRestore.summaries && grades > dashboardBeforeRestore.grades)
+    assert.equal(weeks, 0)
     assert.equal(syncs, 0)
     const dashboardAfterRestore = { weeks, trainingWeeks, indexes, summaries, grades }
     const unchangedComplete = page.waitForResponse('**/activities/sync/status')
@@ -168,7 +169,8 @@ async function main() {
     await page.getByLabel('Current week TSS').getByText('120.0', { exact: true }).waitFor()
     await grade.getByText('Grade: 87 / 100', { exact: true }).waitFor()
     assert.deepEqual({ indexes, summaries, grades }, { indexes: before.indexes + 1, summaries: before.summaries + 1, grades: before.grades + 1 })
-    assert.ok(weeks > before.weeks && trainingWeeks > before.trainingWeeks)
+    assert.ok(trainingWeeks > before.trainingWeeks)
+    assert.equal(weeks, 0)
     await page.getByRole('button', { name: 'Get new data' }).click()
     await page.getByRole('alert').filter({ hasText: 'Sync failed' }).waitFor()
     const messageBounds = await page.locator('.activity-dashboard > .error-message').boundingBox()
@@ -255,8 +257,12 @@ async function main() {
     assert.equal(await heartRate.isChecked(), true)
     await page.getByText('View heart rate and pace data', { exact: true }).click()
     await page.locator('.chart-data-table tbody tr').waitFor()
-    assert.equal(await page.locator('.chart-data-table tbody tr').count(), 1)
+    assert.equal(await page.locator('.chart-data-table tbody tr').count(), 500)
     assert.equal(await page.locator('.chart-data-table tbody td').first().innerText(), '150')
+    assert.equal(await page.locator('.chart-data-table tbody tr').nth(0).locator('td').nth(1).innerText(), '—')
+    assert.equal(await page.locator('.chart-data-table tbody tr').nth(1).locator('td').nth(1).innerText(), '10:00 /km')
+    await page.getByRole('button', { name: 'Next' }).click()
+    assert.equal(await page.locator('.chart-data-table tbody tr').count(), 1)
     console.log('Activities sync, grade polling, keyboard navigation, responsive and chart checks passed.')
   } finally { await browser.close() }
 }

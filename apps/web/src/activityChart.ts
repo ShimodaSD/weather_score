@@ -31,12 +31,13 @@ export function buildLapMarkers(laps: Record<string, unknown>[], startedAt: stri
   })
 }
 
-export function buildActivitySeries(records: Record<string, unknown>[], startedAt: string): { heartRate: ChartPoint[]; pace: ChartPoint[]; adjustedPace: ChartPoint[]; xUnit: 'minutes' | 'samples' } {
+export function buildActivitySeries(records: Record<string, unknown>[], startedAt: string): { heartRate: ChartPoint[]; pace: ChartPoint[]; rawPace: ChartPoint[]; adjustedPace: ChartPoint[]; xUnit: 'minutes' | 'samples' } {
   const firstTimestamp = records.find((record) => typeof record.timestamp === 'string' && Number.isFinite(Date.parse(record.timestamp)))?.timestamp
   const activityStart = Date.parse(startedAt)
   const firstTime = typeof firstTimestamp === 'string' ? Number.isFinite(activityStart) ? activityStart : Date.parse(firstTimestamp) : null
   const heartRate: ChartPoint[] = []
   const pace: ChartPoint[] = []
+  const rawPace: ChartPoint[] = []
   const adjustedPace: ChartPoint[] = []
   let elevationWindow: { distance: number; altitude: number; gain: number }[] = []
 
@@ -47,8 +48,9 @@ export function buildActivitySeries(records: Record<string, unknown>[], startedA
     const hr = record.hr
     const speed = record.speed
     heartRate.push({ x, y: typeof hr === 'number' && Number.isFinite(hr) && hr > 0 ? hr : null })
-    const minutesPerKm = typeof speed === 'number' && Number.isFinite(speed) && speed > 0 ? 60 / speed : MAX_PACE_MIN_PER_KM
-    pace.push({ x, y: Math.min(minutesPerKm, MAX_PACE_MIN_PER_KM) })
+    const minutesPerKm = typeof speed === 'number' && Number.isFinite(speed) && speed > 0 ? 60 / speed : null
+    rawPace.push({ x, y: minutesPerKm })
+    pace.push({ x, y: Math.min(minutesPerKm ?? MAX_PACE_MIN_PER_KM, MAX_PACE_MIN_PER_KM) })
     const distance = record.distance
     const altitude = record.altitude
     let adjusted: number | null = null
@@ -71,5 +73,5 @@ export function buildActivitySeries(records: Record<string, unknown>[], startedA
     adjustedPace.push({ x, y: adjusted })
   })
 
-  return { heartRate, pace, adjustedPace, xUnit: firstTime === null ? 'samples' : 'minutes' }
+  return { heartRate, pace, rawPace, adjustedPace, xUnit: firstTime === null ? 'samples' : 'minutes' }
 }

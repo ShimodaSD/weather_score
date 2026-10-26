@@ -1,30 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Chart, BarController, BarElement, CategoryScale, LineController, LineElement, PointElement, LinearScale, Legend, Tooltip } from 'chart.js'
-import { fetchWeeklyTraining, type WeeklyTraining } from './api'
+import type { WeeklyTraining } from './api'
 
 Chart.register(BarController, BarElement, CategoryScale, LineController, LineElement, PointElement, LinearScale, Legend, Tooltip)
 
 const weekLabel = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
-export default function WeeklyTrainingChart({ token, onTokenChange }: { token: string; onTokenChange: (token: string) => void }) {
+export default function WeeklyTrainingChart({ weeks, error, onRetry }: { weeks: WeeklyTraining[] | null; error: string; onRetry: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null)
-  const [weeks, setWeeks] = useState<WeeklyTraining[] | null>(null)
-  const [error, setError] = useState('')
-  const [retry, setRetry] = useState(0)
-
-  useEffect(() => {
-    let cancelled = false
-    setWeeks(null)
-    setError('')
-    fetchWeeklyTraining(import.meta.env.VITE_API_BASE_URL || '/api', token).then((data) => {
-      if (!cancelled) setWeeks(data)
-    }).catch((reason) => {
-      if (cancelled) return
-      if (reason instanceof Error && reason.message.includes('sign-in expired')) onTokenChange('')
-      setError(reason instanceof Error ? reason.message : 'Could not load weekly training.')
-    })
-    return () => { cancelled = true }
-  }, [token, onTokenChange, retry])
 
   useEffect(() => {
     if (!canvas.current || !weeks) return
@@ -69,7 +52,7 @@ export default function WeeklyTrainingChart({ token, onTokenChange }: { token: s
     <span className="eyebrow">TRAINING HISTORY</span>
     <h2 id="weekly-training-title">Weekly distance &amp; TSS</h2>
     <p className="chart-caption">Last 12 weeks · Monday–Sunday · Running and cycling distances, with combined heart-rate TSS. Current week is in progress. Solid bars: running; striped bars: cycling; dashed line: TSS.</p>
-    {error ? <><p role="alert" className="error-message">{error}</p><button className="grade-recalculate" type="button" onClick={() => setRetry((value) => value + 1)}>Try again</button></>
+    {error ? <><p role="alert" className="error-message">{error}</p><button className="grade-recalculate" type="button" onClick={onRetry}>Try again</button></>
       : !weeks ? <p className="dashboard-state" role="status">Loading weekly training…</p> : <>
         <div className="weekly-training-canvas"><canvas ref={canvas} role="img" aria-label="Weekly running and cycling kilometres with combined TSS. Exact values are in the table below." /></div>
         {weeks.every((week) => week.running_km === 0 && week.cycling_km === 0 && week.scored_activity_count === 0 && week.excluded_activity_count === 0) && <p className="chart-caption">No activities recorded in these weeks.</p>}
