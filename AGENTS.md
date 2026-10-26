@@ -143,7 +143,8 @@ Dashboard sync and grade interactions are checked by
 `apps/web/tests/activities.browser.cjs`; see `apps/web/README.md` for the
 development-server and existing Playwright requirements.
 Both **Get new data** buttons poll protected `GET /activities/sync/status`
-on page entry and every 30 seconds for live downloaded/total file counts and
+on page entry, every 30 seconds while idle, and every two seconds after a sync
+is detected for live downloaded/total file counts and
 the download/import phase, including syncs already running after navigation. Progress
 comes from `scripts/download_garmindb.py` and stays in the single API process.
 Coverage is in `tests/test_download_garmindb.py`, `tests/api/test_garmin.py`,

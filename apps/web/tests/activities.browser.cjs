@@ -33,7 +33,7 @@ async function main() {
         assert.equal(route.request().method(), 'POST')
         syncs++
         downloadProgress = { phase: 'downloading', downloaded_files: 2, total_files: 6 }
-        if (syncs > 1) {
+        if (syncs === 2) {
           downloadProgress = { phase: 'failed', downloaded_files: 0, total_files: null }
           return route.fulfill({ status: 503, json: { detail: 'Sync failed' } })
         }
@@ -150,25 +150,45 @@ async function main() {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     assert.equal(await page.locator('.activity-sync-spinner').evaluate((element) => getComputedStyle(element).animationName), 'none')
     assert.equal(syncs, 1)
+    await page.clock.fastForward(30_000)
     await page.getByText('2 of 6 files downloaded · 4 remaining', { exact: true }).waitFor()
     const fileProgress = page.getByRole('progressbar', { name: 'Garmin files downloaded' })
     assert.equal(await fileProgress.getAttribute('value'), '2')
     assert.equal(await fileProgress.getAttribute('max'), '6')
+    await progress.getByText('33%', { exact: true }).waitFor()
+    assert.equal(await progress.locator('[aria-current="step"]').innerText(), '2\nDownloading')
+    assert.equal(await progress.locator('.is-complete').count(), 1)
     downloadProgress = { phase: 'importing', downloaded_files: 6, total_files: 6 }
     const initialProgressRequests = progressRequests
-    await page.clock.fastForward(29_000)
+    await page.clock.fastForward(1_999)
     assert.equal(progressRequests, initialProgressRequests)
-    await page.clock.fastForward(1000)
+    await page.clock.fastForward(1)
     await page.getByText('6 files downloaded. Importing activities…', { exact: true }).waitFor()
     assert.equal(await fileProgress.getAttribute('value'), null)
+    assert.equal(await progress.locator('[aria-current="step"]').innerText(), '3\nImporting')
+    assert.equal(await progress.getByText('100%', { exact: true }).count(), 0)
+    assert.equal(await progress.locator('.is-complete').count(), 2)
+    assert.equal(await progress.locator('.activity-sync-track').evaluate((element) => getComputedStyle(element, '::after').animationName), 'none')
     assert.equal(progressRequests, initialProgressRequests + 1)
+    listSize = 4
+    downloadProgress = { phase: 'complete', downloaded_files: 6, total_files: 6 }
+    await page.clock.fastForward(30_000)
+    await page.waitForFunction(() => document.querySelectorAll('.activity-row').length === 4)
+    await page.getByLabel('Current week TSS').getByText('120.0', { exact: true }).waitFor()
+    await grade.getByText('Grade: 87 / 100', { exact: true }).waitFor()
+    assert.ok(indexes > before.indexes && summaries > before.summaries && grades > before.grades)
+    const afterCompletion = { indexes, summaries, grades }
+    const repeatedLocalComplete = page.waitForResponse('**/activities/sync/status')
+    await page.clock.fastForward(30_000)
+    await repeatedLocalComplete
+    assert.deepEqual({ indexes, summaries, grades }, afterCompletion)
     await page.clock.resume()
     releaseSync()
     await page.getByText('1 new Garmin activity imported.', { exact: true }).waitFor()
     assert.equal(await progress.count(), 0)
     await page.getByLabel('Current week TSS').getByText('120.0', { exact: true }).waitFor()
     await grade.getByText('Grade: 87 / 100', { exact: true }).waitFor()
-    assert.deepEqual({ indexes, summaries, grades }, { indexes: before.indexes + 1, summaries: before.summaries + 1, grades: before.grades + 1 })
+    assert.deepEqual({ indexes, summaries, grades }, { indexes: afterCompletion.indexes + 1, summaries: afterCompletion.summaries + 1, grades: afterCompletion.grades + 1 })
     assert.ok(trainingWeeks > before.trainingWeeks)
     assert.equal(weeks, 0)
     await page.getByRole('button', { name: 'Get new data' }).click()
@@ -177,6 +197,16 @@ async function main() {
     const dataBounds = await page.getByRole('region', { name: 'Activity totals' }).boundingBox()
     assert.ok(dataBounds.y - (messageBounds.y + messageBounds.height) >= 24)
     assert.equal(await page.getByRole('button', { name: 'Get new data' }).isEnabled(), true)
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
+    await page.getByRole('button', { name: 'Get new data' }).click()
+    await page.waitForFunction(() => document.querySelector('.garmin-sync')?.disabled)
+    listSize = 5
+    downloadProgress = { phase: 'complete', downloaded_files: 6, total_files: 6 }
+    await page.clock.fastForward(30_000)
+    await page.waitForFunction(() => document.querySelectorAll('.activity-row').length === 5)
+    releaseSync()
+    await page.getByRole('button', { name: 'Get new data' }).waitFor()
+    await page.clock.resume()
     failGrades = true
     await page.reload()
     await page.getByRole('button', { name: 'Retry grades' }).waitFor()

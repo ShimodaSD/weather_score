@@ -64,6 +64,9 @@ appropriate backend CORS policy. The Vite proxy only runs during development.
 Activities also displays saved route grades (polling while processing) and the
 same **Get new data** action as Grades. Successful sync refreshes the list,
 selected summary, grades, and weekly TSS without resetting the selection.
+Status polling runs every 30 seconds while idle and every two seconds after
+a sync is detected. It also refreshes data when import completes, even if
+the original sync request is still pending or has failed to return.
 
 With a development server running and Playwright/Chromium available, run the
 mocked browser regression check (no Garmin downloads or weather requests):
