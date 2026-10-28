@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-10-28T15:43:47.642995+00:00",
+  "nodes": {
+    "apps_web_agents_skills_ui_ux_pro_max_scripts_core_get_bm25": {
+      "code_fingerprint": "e544826963efefce3c59b65e18d83d92a5baf571f05458025bf1fa9021eced42",
+      "label": "_get_bm25()",
+      "last": "2026-10-28T15:19:47.863894+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-28T15:19:47.863894+00:00",
+          "outcome": "useful",
+          "q": "trace it"
+        }
+      ],
+      "score": 0.999615051,
+      "source_file": "apps/web/.agents/skills/ui-ux-pro-max/scripts/core.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "apps_web_agents_skills_ui_ux_pro_max_scripts_core_search_csv_detailed": {
+      "code_fingerprint": "e544826963efefce3c59b65e18d83d92a5baf571f05458025bf1fa9021eced42",
+      "label": "_search_csv_detailed()",
+      "last": "2026-10-28T15:19:47.863894+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-28T15:19:47.863894+00:00",
+          "outcome": "useful",
+          "q": "trace it"
+        }
+      ],
+      "score": 0.999615051,
+      "source_file": "apps/web/.agents/skills/ui-ux-pro-max/scripts/core.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "apps_web_agents_skills_ui_ux_pro_max_scripts_core_search_stack": {
+      "code_fingerprint": "e544826963efefce3c59b65e18d83d92a5baf571f05458025bf1fa9021eced42",
+      "label": "search_stack()",
+      "last": "2026-10-28T15:19:47.863894+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-28T15:19:47.863894+00:00",
+          "outcome": "useful",
+          "q": "trace it"
+        }
+      ],
+      "score": 0.999615051,
+      "source_file": "apps/web/.agents/skills/ui-ux-pro-max/scripts/core.py",
+      "status": "tentative",
+      "uses": 1
+    }
+  },
+  "version": 1
+}
