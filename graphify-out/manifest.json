@@ -1,0 +1,1430 @@
+{
+  ".github/workflows/main.yml": {
+    "mtime": 1793200177.7022657,
+    "seen": 1793200672.962943,
+    "ast_hash": "4434024838cb97fb2b23b5e7a6b7dc08",
+    "semantic_hash": "4434024838cb97fb2b23b5e7a6b7dc08"
+  },
+  ".vscode/launch.json": {
+    "mtime": 1793200177.7025743,
+    "seen": 1793200672.962949,
+    "ast_hash": "37d9ef07d934cb16cdf22a154616ea13",
+    "semantic_hash": "37d9ef07d934cb16cdf22a154616ea13"
+  },
+  ".vscode/settings.json": {
+    "mtime": 1793200177.7026305,
+    "seen": 1793200672.962951,
+    "ast_hash": "a5540d73e6577807663f438c8c23e253",
+    "semantic_hash": "a5540d73e6577807663f438c8c23e253"
+  },
+  "apps/api/.vscode/settings.json": {
+    "mtime": 1793200177.7033942,
+    "seen": 1793200672.962951,
+    "ast_hash": "893747d20e60d5d308ab7c3b8518f7f8",
+    "semantic_hash": "893747d20e60d5d308ab7c3b8518f7f8"
+  },
+  "apps/api/database.py": {
+    "mtime": 1793200177.7035842,
+    "seen": 1793200672.962952,
+    "ast_hash": "683b985c1a73c7d408c1e50bc3095a01",
+    "semantic_hash": "683b985c1a73c7d408c1e50bc3095a01"
+  },
+  "apps/api/main.py": {
+    "mtime": 1793200177.703676,
+    "seen": 1793200672.962952,
+    "ast_hash": "7b1731fdc6e9044c1c2619e6924f3b2e",
+    "semantic_hash": "7b1731fdc6e9044c1c2619e6924f3b2e"
+  },
+  "apps/api/routes/__init__.py": {
+    "mtime": 1793200177.7037911,
+    "seen": 1793200672.9629529,
+    "ast_hash": "1d88048226a5313ede0aaf5ff2840ebe",
+    "semantic_hash": "1d88048226a5313ede0aaf5ff2840ebe"
+  },
+  "apps/api/routes/connections/database.py": {
+    "mtime": 1793200177.7039492,
+    "seen": 1793200672.962954,
+    "ast_hash": "53306467949d9ecc6c86b0e54e3b69dc",
+    "semantic_hash": "53306467949d9ecc6c86b0e54e3b69dc"
+  },
+  "apps/api/routes/garmin.py": {
+    "mtime": 1793200177.7042172,
+    "seen": 1793200672.962954,
+    "ast_hash": "1638ec7b7f412e4661c32fd37fe3deb9",
+    "semantic_hash": "1638ec7b7f412e4661c32fd37fe3deb9"
+  },
+  "apps/api/routes/profile.py": {
+    "mtime": 1793200177.704305,
+    "seen": 1793200672.962955,
+    "ast_hash": "9b7495aa741f7f7f7b6f84294ac9c0fe",
+    "semantic_hash": "9b7495aa741f7f7f7b6f84294ac9c0fe"
+  },
+  "apps/api/routes/router.py": {
+    "mtime": 1793200177.7043614,
+    "seen": 1793200672.962955,
+    "ast_hash": "0738eee38cfc00d84c477329288e343e",
+    "semantic_hash": "0738eee38cfc00d84c477329288e343e"
+  },
+  "apps/api/routes/run_grade.py": {
+    "mtime": 1793200177.7044914,
+    "seen": 1793200672.962956,
+    "ast_hash": "b7824f549e6f7144a42c6474737f49ef",
+    "semantic_hash": "b7824f549e6f7144a42c6474737f49ef"
+  },
+  "apps/api/routes/score.py": {
+    "mtime": 1793200177.7045798,
+    "seen": 1793200672.962956,
+    "ast_hash": "f5f063a8ca8299d8d3c29882cd3aebb5",
+    "semantic_hash": "f5f063a8ca8299d8d3c29882cd3aebb5"
+  },
+  "apps/api/routes/system.py": {
+    "mtime": 1793200177.704687,
+    "seen": 1793200672.9629571,
+    "ast_hash": "5f078f24299655af008919bb3133fb6d",
+    "semantic_hash": "5f078f24299655af008919bb3133fb6d"
+  },
+  "apps/api/schemas/__init__.py": {
+    "mtime": 1793200177.7047849,
+    "seen": 1793200672.9629571,
+    "ast_hash": "cddaf21d70770e6ea61286032d58bebc",
+    "semantic_hash": "cddaf21d70770e6ea61286032d58bebc"
+  },
+  "apps/api/schemas/activity.py": {
+    "mtime": 1793200177.704968,
+    "seen": 1793200672.962958,
+    "ast_hash": "4308559e931d48dac667de460788e9cc",
+    "semantic_hash": "4308559e931d48dac667de460788e9cc"
+  },
+  "apps/api/schemas/activity_grade.py": {
+    "mtime": 1793200177.70503,
+    "seen": 1793200672.962958,
+    "ast_hash": "d013614b143eee064772dc5eb33250d8",
+    "semantic_hash": "d013614b143eee064772dc5eb33250d8"
+  },
+  "apps/api/schemas/location.py": {
+    "mtime": 1793200177.7051122,
+    "seen": 1793200672.962959,
+    "ast_hash": "f71d82af6247eda4a5cf04a3fd3e5d3b",
+    "semantic_hash": "f71d82af6247eda4a5cf04a3fd3e5d3b"
+  },
+  "apps/api/schemas/profile.py": {
+    "mtime": 1793200177.705196,
+    "seen": 1793200672.962959,
+    "ast_hash": "e4af99d2087cf5043e7600d019759b55",
+    "semantic_hash": "e4af99d2087cf5043e7600d019759b55"
+  },
+  "apps/api/schemas/run_grade.py": {
+    "mtime": 1793200177.7052984,
+    "seen": 1793200672.9629598,
+    "ast_hash": "6b831a065d93dd834d59d6a5096f24b8",
+    "semantic_hash": "6b831a065d93dd834d59d6a5096f24b8"
+  },
+  "apps/api/schemas/score.py": {
+    "mtime": 1793200177.7054021,
+    "seen": 1793200672.9629598,
+    "ast_hash": "23afe1c69260de58a7e676acc44e2b1d",
+    "semantic_hash": "23afe1c69260de58a7e676acc44e2b1d"
+  },
+  "apps/api/security/__init__.py": {
+    "mtime": 1793200177.7055326,
+    "seen": 1793200672.962961,
+    "ast_hash": "8892bb7ce3b87060a7206b1e29609eb9",
+    "semantic_hash": "8892bb7ce3b87060a7206b1e29609eb9"
+  },
+  "apps/api/security/auth.py": {
+    "mtime": 1793200177.7056346,
+    "seen": 1793200672.962962,
+    "ast_hash": "a847ee202587ddcb329ecef321820505",
+    "semantic_hash": "a847ee202587ddcb329ecef321820505"
+  },
+  "apps/api/services/__init__.py": {
+    "mtime": 1793200177.705761,
+    "seen": 1793200672.962962,
+    "ast_hash": "a218c4e11a558a231965ed0b970a23d9",
+    "semantic_hash": "a218c4e11a558a231965ed0b970a23d9"
+  },
+  "apps/api/services/activity_grades.py": {
+    "mtime": 1793200177.7060874,
+    "seen": 1793200672.9629629,
+    "ast_hash": "1e5af826f34e2715cb1c63732fb6de7a",
+    "semantic_hash": "1e5af826f34e2715cb1c63732fb6de7a"
+  },
+  "apps/api/services/garmin.py": {
+    "mtime": 1793200177.7063932,
+    "seen": 1793200672.9629629,
+    "ast_hash": "b3a194cac1c4fddaa3a2b9edc7d688af",
+    "semantic_hash": "b3a194cac1c4fddaa3a2b9edc7d688af"
+  },
+  "apps/api/services/geocoding.py": {
+    "mtime": 1793200177.7064877,
+    "seen": 1793200672.962964,
+    "ast_hash": "3e1741522325c3effafc6bf1496aac6b",
+    "semantic_hash": "3e1741522325c3effafc6bf1496aac6b"
+  },
+  "apps/api/services/profile.py": {
+    "mtime": 1793200177.7065866,
+    "seen": 1793200672.962964,
+    "ast_hash": "afd825fb2cb5fe1ea94292c360940f87",
+    "semantic_hash": "afd825fb2cb5fe1ea94292c360940f87"
+  },
+  "apps/api/services/scoring.py": {
+    "mtime": 1793200177.7066758,
+    "seen": 1793200672.962964,
+    "ast_hash": "949c2fdfeec5943ec6d294713a179668",
+    "semantic_hash": "949c2fdfeec5943ec6d294713a179668"
+  },
+  "apps/api/sql/application.sql": {
+    "mtime": 1793200177.7067997,
+    "seen": 1793200672.962965,
+    "ast_hash": "3d98449a360c5e647a9c1f98632538b8",
+    "semantic_hash": "3d98449a360c5e647a9c1f98632538b8"
+  },
+  "apps/api/sql/garmin.sql": {
+    "mtime": 1793200177.7069507,
+    "seen": 1793200672.962966,
+    "ast_hash": "71a7048886385e2902cdd5e333782a2e",
+    "semantic_hash": "71a7048886385e2902cdd5e333782a2e"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/data/catalog-summary.json": {
+    "mtime": 1793200177.7078483,
+    "seen": 1793200672.962966,
+    "ast_hash": "7e5ed9c8eb4042461e482907bb260618",
+    "semantic_hash": "7e5ed9c8eb4042461e482907bb260618"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/data/data-provenance.json": {
+    "mtime": 1793200177.7084332,
+    "seen": 1793200672.9629672,
+    "ast_hash": "4f0fbe5f16c919f87170d6f493fad5e3",
+    "semantic_hash": "4f0fbe5f16c919f87170d6f493fad5e3"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/data/google-font-licenses.json": {
+    "mtime": 1793200177.708875,
+    "seen": 1793200672.9629672,
+    "ast_hash": "c6f70c775c4b6ac26441cf1b0022ad71",
+    "semantic_hash": "c6f70c775c4b6ac26441cf1b0022ad71"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/data/phosphor-icons-upstream.json": {
+    "mtime": 1793200177.710798,
+    "seen": 1793200672.962968,
+    "ast_hash": "933217ce321daf2458d12c41e5f19cb1",
+    "semantic_hash": "933217ce321daf2458d12c41e5f19cb1"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/core.py": {
+    "mtime": 1793200177.7170894,
+    "seen": 1793200672.962968,
+    "ast_hash": "1e51ce8efaf151a95106f37dc49cf032",
+    "semantic_hash": "1e51ce8efaf151a95106f37dc49cf032"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/design_system.py": {
+    "mtime": 1793200177.7172623,
+    "seen": 1793200672.962969,
+    "ast_hash": "f11c3d748dadf0f1d030d7c119818daa",
+    "semantic_hash": "f11c3d748dadf0f1d030d7c119818daa"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/reasoning_contract.py": {
+    "mtime": 1793200177.7175703,
+    "seen": 1793200672.962969,
+    "ast_hash": "e03944fe11a921f4c13687774c97b09a",
+    "semantic_hash": "e03944fe11a921f4c13687774c97b09a"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/search.py": {
+    "mtime": 1793200177.7177527,
+    "seen": 1793200672.96297,
+    "ast_hash": "c7f298eae8d4f630a4fbe20c0d1d2c77",
+    "semantic_hash": "c7f298eae8d4f630a4fbe20c0d1d2c77"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/catalogs/google-api.json": {
+    "mtime": 1793200177.7179568,
+    "seen": 1793200672.96297,
+    "ast_hash": "a7237266e58d0d350d1b671a6c8cd5d3",
+    "semantic_hash": "a7237266e58d0d350d1b671a6c8cd5d3"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/catalogs/google-catalog.json": {
+    "mtime": 1793200177.7180235,
+    "seen": 1793200672.962971,
+    "ast_hash": "02d80499488d2a6081061bc8e29c469e",
+    "semantic_hash": "02d80499488d2a6081061bc8e29c469e"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/catalogs/google-metadata.json": {
+    "mtime": 1793200177.7181528,
+    "seen": 1793200672.962971,
+    "ast_hash": "10afdf3d0fe26e932bbb7ce6fe65a766",
+    "semantic_hash": "10afdf3d0fe26e932bbb7ce6fe65a766"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/catalogs/google-overrides.json": {
+    "mtime": 1793200177.718211,
+    "seen": 1793200672.962972,
+    "ast_hash": "b690ec6f034bddc7902730d4cdeae73f",
+    "semantic_hash": "b690ec6f034bddc7902730d4cdeae73f"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/catalogs/phosphor-core.json": {
+    "mtime": 1793200177.7183414,
+    "seen": 1793200672.962972,
+    "ast_hash": "75b4d81152b32684a434ffd102341583",
+    "semantic_hash": "75b4d81152b32684a434ffd102341583"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/catalogs/phosphor-package.json": {
+    "mtime": 1793200177.7184305,
+    "seen": 1793200672.9629729,
+    "ast_hash": "afc32a816bf0fa9b8c28b52a93becff0",
+    "semantic_hash": "afc32a816bf0fa9b8c28b52a93becff0"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/catalogs/phosphor-react-exports.json": {
+    "mtime": 1793200177.7186272,
+    "seen": 1793200672.9629729,
+    "ast_hash": "ef522a435f50260b089f0212f84ae35a",
+    "semantic_hash": "ef522a435f50260b089f0212f84ae35a"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/catalogs/phosphor-react-package.json": {
+    "mtime": 1793200177.7187388,
+    "seen": 1793200672.9629738,
+    "ast_hash": "5e4623083f8c525cbedd1f63b3352f8d",
+    "semantic_hash": "5e4623083f8c525cbedd1f63b3352f8d"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/relevance-baseline.json": {
+    "mtime": 1793200177.7189429,
+    "seen": 1793200672.9629738,
+    "ast_hash": "823661c1f07780b42e647689db49f7d8",
+    "semantic_hash": "823661c1f07780b42e647689db49f7d8"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/relevance-cases.json": {
+    "mtime": 1793200177.7190816,
+    "seen": 1793200672.962975,
+    "ast_hash": "4df077e7335abb225f9674b8986515cf",
+    "semantic_hash": "4df077e7335abb225f9674b8986515cf"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/fixtures/relevance-thresholds.json": {
+    "mtime": 1793200177.719364,
+    "seen": 1793200672.962975,
+    "ast_hash": "fc12a2a9ac3090d0342b231ca5dadbba",
+    "semantic_hash": "fc12a2a9ac3090d0342b231ca5dadbba"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/test_catalog_refresh.py": {
+    "mtime": 1793200177.719451,
+    "seen": 1793200672.962976,
+    "ast_hash": "1068a876d6c669a8e8d3ac427c6d0dd0",
+    "semantic_hash": "1068a876d6c669a8e8d3ac427c6d0dd0"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/test_core.py": {
+    "mtime": 1793200177.7195382,
+    "seen": 1793200672.962977,
+    "ast_hash": "2d94f15b1c12cf0b0e4993cacdb4f0ba",
+    "semantic_hash": "2d94f15b1c12cf0b0e4993cacdb4f0ba"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/test_core_data_quality.py": {
+    "mtime": 1793200177.7197156,
+    "seen": 1793200672.962977,
+    "ast_hash": "dd075aae5ec7d65b41d4e1fc730117ba",
+    "semantic_hash": "dd075aae5ec7d65b41d4e1fc730117ba"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/test_data_contracts.py": {
+    "mtime": 1793200177.719812,
+    "seen": 1793200672.9629781,
+    "ast_hash": "d5d35046faca80fe1a48776ad385338d",
+    "semantic_hash": "d5d35046faca80fe1a48776ad385338d"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/test_design_system_mode.py": {
+    "mtime": 1793200177.7201033,
+    "seen": 1793200672.9629781,
+    "ast_hash": "c23e05dfc7b1602ecc88866c37235c68",
+    "semantic_hash": "c23e05dfc7b1602ecc88866c37235c68"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/test_native_desktop_stack_freshness.py": {
+    "mtime": 1793200177.7202377,
+    "seen": 1793200672.962979,
+    "ast_hash": "a68849787265953911e32e3a93968f7c",
+    "semantic_hash": "a68849787265953911e32e3a93968f7c"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/test_relevance_evaluator.py": {
+    "mtime": 1793200177.7203884,
+    "seen": 1793200672.962979,
+    "ast_hash": "10a92a919a7780ebb6aada75eb7d0ed5",
+    "semantic_hash": "10a92a919a7780ebb6aada75eb7d0ed5"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/test_style_taxonomy.py": {
+    "mtime": 1793200177.7205238,
+    "seen": 1793200672.96298,
+    "ast_hash": "32c02df463685f41869a7bb9b8396574",
+    "semantic_hash": "32c02df463685f41869a7bb9b8396574"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/test_text_layout_resilience.py": {
+    "mtime": 1793200177.7206655,
+    "seen": 1793200672.96298,
+    "ast_hash": "d9ce97bf10c398e3ce0304334ba98bc2",
+    "semantic_hash": "d9ce97bf10c398e3ce0304334ba98bc2"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/tests/test_web_stack_freshness.py": {
+    "mtime": 1793200177.7208197,
+    "seen": 1793200672.9629812,
+    "ast_hash": "e84ab0d880304d93dda6f06aac5bdaa3",
+    "semantic_hash": "e84ab0d880304d93dda6f06aac5bdaa3"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/scripts/validate_data.py": {
+    "mtime": 1793200177.720944,
+    "seen": 1793200672.9629812,
+    "ast_hash": "393c4f769b3fd434a0916d125f48b038",
+    "semantic_hash": "393c4f769b3fd434a0916d125f48b038"
+  },
+  "apps/web/package.json": {
+    "mtime": 1793200177.7223506,
+    "seen": 1793200672.962982,
+    "ast_hash": "af4e9c0c79390b5b29799828b02c7d98",
+    "semantic_hash": "af4e9c0c79390b5b29799828b02c7d98"
+  },
+  "apps/web/src/Activities.tsx": {
+    "mtime": 1793200177.722835,
+    "seen": 1793200672.962982,
+    "ast_hash": "010a7729275e972872baeeab45db675c",
+    "semantic_hash": "010a7729275e972872baeeab45db675c"
+  },
+  "apps/web/src/ActivityDetailPage.tsx": {
+    "mtime": 1793200177.7229934,
+    "seen": 1793200672.962983,
+    "ast_hash": "323c09d4b46fa5d1945b8dcd16e17bfc",
+    "semantic_hash": "323c09d4b46fa5d1945b8dcd16e17bfc"
+  },
+  "apps/web/src/ActivityGradesPage.tsx": {
+    "mtime": 1793200177.7231584,
+    "seen": 1793200672.962983,
+    "ast_hash": "ae8815b5c3f5d401b52dc485f65a6a4b",
+    "semantic_hash": "ae8815b5c3f5d401b52dc485f65a6a4b"
+  },
+  "apps/web/src/ActivityTssPanel.tsx": {
+    "mtime": 1793200177.7232423,
+    "seen": 1793200672.9629838,
+    "ast_hash": "e217843ac4d9b0f46d7484d6cefaddcd",
+    "semantic_hash": "e217843ac4d9b0f46d7484d6cefaddcd"
+  },
+  "apps/web/src/App.tsx": {
+    "mtime": 1793200177.7234762,
+    "seen": 1793200672.9629838,
+    "ast_hash": "28c3cc0d4994adae28449146580dad03",
+    "semantic_hash": "28c3cc0d4994adae28449146580dad03"
+  },
+  "apps/web/src/GarminSyncProgress.tsx": {
+    "mtime": 1793200177.7240667,
+    "seen": 1793200672.962985,
+    "ast_hash": "dd863e738f412b1a1da693c0fad4878f",
+    "semantic_hash": "dd863e738f412b1a1da693c0fad4878f"
+  },
+  "apps/web/src/ProfilePage.tsx": {
+    "mtime": 1793200177.7242305,
+    "seen": 1793200672.962985,
+    "ast_hash": "555a5e30760faa8e43a9abd1cb3010d1",
+    "semantic_hash": "555a5e30760faa8e43a9abd1cb3010d1"
+  },
+  "apps/web/src/RunningPredictionsPage.tsx": {
+    "mtime": 1793200177.724414,
+    "seen": 1793200672.962986,
+    "ast_hash": "726cb0e0e2dd0d4c7765e97edce28932",
+    "semantic_hash": "726cb0e0e2dd0d4c7765e97edce28932"
+  },
+  "apps/web/src/WeeklyTrainingChart.tsx": {
+    "mtime": 1793200177.7248437,
+    "seen": 1793200672.962986,
+    "ast_hash": "bfc6f2e02467a2c98eeda2f2ac279b0f",
+    "semantic_hash": "bfc6f2e02467a2c98eeda2f2ac279b0f"
+  },
+  "apps/web/src/WeeklyTssCard.tsx": {
+    "mtime": 1793200177.725152,
+    "seen": 1793200672.962987,
+    "ast_hash": "57604208ca59535298bd4e24cb56e3c6",
+    "semantic_hash": "57604208ca59535298bd4e24cb56e3c6"
+  },
+  "apps/web/src/activityChart.test.ts": {
+    "mtime": 1793200177.7252514,
+    "seen": 1793200672.962987,
+    "ast_hash": "60a4c68ff42ee7a92dded63d11f35146",
+    "semantic_hash": "60a4c68ff42ee7a92dded63d11f35146"
+  },
+  "apps/web/src/activityChart.ts": {
+    "mtime": 1793200177.7254465,
+    "seen": 1793200672.9629881,
+    "ast_hash": "9590019d52dcf8de9b30315e7ebd5b8f",
+    "semantic_hash": "9590019d52dcf8de9b30315e7ebd5b8f"
+  },
+  "apps/web/src/api.test.ts": {
+    "mtime": 1793200177.7255805,
+    "seen": 1793200672.9629881,
+    "ast_hash": "2b9d8c3a204ca44dd6f497319ff52fa5",
+    "semantic_hash": "2b9d8c3a204ca44dd6f497319ff52fa5"
+  },
+  "apps/web/src/api.ts": {
+    "mtime": 1793200177.72572,
+    "seen": 1793200672.962989,
+    "ast_hash": "545b94df9430352566d208adfd1eb2cf",
+    "semantic_hash": "545b94df9430352566d208adfd1eb2cf"
+  },
+  "apps/web/src/main.tsx": {
+    "mtime": 1793200177.7257917,
+    "seen": 1793200672.962989,
+    "ast_hash": "f968758381813ab7b447613844e768c8",
+    "semantic_hash": "f968758381813ab7b447613844e768c8"
+  },
+  "apps/web/tests/activities.browser.cjs": {
+    "mtime": 1793200177.726474,
+    "seen": 1793200672.96299,
+    "ast_hash": "c2b8c674e99881dc929a8b119bc1966f",
+    "semantic_hash": "c2b8c674e99881dc929a8b119bc1966f"
+  },
+  "apps/web/tsconfig.json": {
+    "mtime": 1793200177.7265553,
+    "seen": 1793200672.962991,
+    "ast_hash": "58c5887d53eb68d9ad126dd1d629b7a3",
+    "semantic_hash": "58c5887d53eb68d9ad126dd1d629b7a3"
+  },
+  "apps/web/vite.config.test.ts": {
+    "mtime": 1793200177.7266319,
+    "seen": 1793200672.962991,
+    "ast_hash": "1c4a7ae92c0adc5e5d1819f8b25ca134",
+    "semantic_hash": "1c4a7ae92c0adc5e5d1819f8b25ca134"
+  },
+  "apps/web/vite.config.ts": {
+    "mtime": 1793200177.7266927,
+    "seen": 1793200672.9629922,
+    "ast_hash": "2b7d422e111aa9c45a089d1a145d6712",
+    "semantic_hash": "2b7d422e111aa9c45a089d1a145d6712"
+  },
+  "compose.yaml": {
+    "mtime": 1793200177.7267609,
+    "seen": 1793200672.9629922,
+    "ast_hash": "3991f0c06db3c8498c6279d8b2296d3e",
+    "semantic_hash": "3991f0c06db3c8498c6279d8b2296d3e"
+  },
+  "docker/init-garmin-db.sh": {
+    "mtime": 1793200177.7268686,
+    "seen": 1793200672.962993,
+    "ast_hash": "62eb0895cdf2d74e1427719bb5d90ba7",
+    "semantic_hash": "62eb0895cdf2d74e1427719bb5d90ba7"
+  },
+  "pyproject.toml": {
+    "mtime": 1793200177.7281876,
+    "seen": 1793200672.962993,
+    "ast_hash": "c5f483a2d4a1a8300ad8d91159d9e789",
+    "semantic_hash": "c5f483a2d4a1a8300ad8d91159d9e789"
+  },
+  "scripts/download_garmindb.py": {
+    "mtime": 1793200177.7283096,
+    "seen": 1793200672.9629939,
+    "ast_hash": "0f559a6f4a3bfb7b879047ca1870d6b4",
+    "semantic_hash": "0f559a6f4a3bfb7b879047ca1870d6b4"
+  },
+  "scripts/import_garmindb.py": {
+    "mtime": 1793200177.7283812,
+    "seen": 1793200672.9629939,
+    "ast_hash": "b3c02ddea23b654bcca0bb46c85e5d24",
+    "semantic_hash": "b3c02ddea23b654bcca0bb46c85e5d24"
+  },
+  "scripts/initialize_postgres.py": {
+    "mtime": 1793200177.7284598,
+    "seen": 1793200672.962995,
+    "ast_hash": "8e758c9a3dbd730c831309a1742c14ab",
+    "semantic_hash": "8e758c9a3dbd730c831309a1742c14ab"
+  },
+  "scripts/notify_openbot.py": {
+    "mtime": 1793200177.7286055,
+    "seen": 1793200672.962995,
+    "ast_hash": "472e8fadd23bb26316f7c5479131dd74",
+    "semantic_hash": "472e8fadd23bb26316f7c5479131dd74"
+  },
+  "scripts/sync_garmindb.py": {
+    "mtime": 1793200177.7286935,
+    "seen": 1793200672.962996,
+    "ast_hash": "33ab77cb8ab06b0293338d35ad9cf425",
+    "semantic_hash": "33ab77cb8ab06b0293338d35ad9cf425"
+  },
+  "src/weather_score/__init__.py": {
+    "mtime": 1793200177.728867,
+    "seen": 1793200672.962996,
+    "ast_hash": "a0e6918847f36b1f1b6451b6b346f590",
+    "semantic_hash": "a0e6918847f36b1f1b6451b6b346f590"
+  },
+  "src/weather_score/application/__init__.py": {
+    "mtime": 1793200177.728971,
+    "seen": 1793200672.962997,
+    "ast_hash": "bdd4b93fccd7e4714053633d7a42e426",
+    "semantic_hash": "bdd4b93fccd7e4714053633d7a42e426"
+  },
+  "src/weather_score/application/activity_grade.py": {
+    "mtime": 1793200177.7292562,
+    "seen": 1793200672.962997,
+    "ast_hash": "6052c2d237bceb036c4804faf1e76f70",
+    "semantic_hash": "6052c2d237bceb036c4804faf1e76f70"
+  },
+  "src/weather_score/application/main.py": {
+    "mtime": 1793200177.7293305,
+    "seen": 1793200672.962998,
+    "ast_hash": "100f7de0beffdf3699e5affda20044de",
+    "semantic_hash": "100f7de0beffdf3699e5affda20044de"
+  },
+  "src/weather_score/application/run_grade.py": {
+    "mtime": 1793200177.7294073,
+    "seen": 1793200672.962998,
+    "ast_hash": "932a97f416536ed059dea172df3e3b9e",
+    "semantic_hash": "932a97f416536ed059dea172df3e3b9e"
+  },
+  "src/weather_score/application/running_predictions.py": {
+    "mtime": 1793200177.729551,
+    "seen": 1793200672.962999,
+    "ast_hash": "3cd285378f0ca36beff49916051ff270",
+    "semantic_hash": "3cd285378f0ca36beff49916051ff270"
+  },
+  "src/weather_score/application/training_stress.py": {
+    "mtime": 1793200177.729693,
+    "seen": 1793200672.962999,
+    "ast_hash": "101172581aa482422db183486fa2d7a1",
+    "semantic_hash": "101172581aa482422db183486fa2d7a1"
+  },
+  "src/weather_score/application/weekly_training.py": {
+    "mtime": 1793200177.7297645,
+    "seen": 1793200672.963,
+    "ast_hash": "c971557b446b5e5b0b28507e0b2b5a50",
+    "semantic_hash": "c971557b446b5e5b0b28507e0b2b5a50"
+  },
+  "src/weather_score/weather/__init__.py": {
+    "mtime": 1793200177.7298741,
+    "seen": 1793200672.963,
+    "ast_hash": "cdc1ea1e687594c2dc37619b397b48b7",
+    "semantic_hash": "cdc1ea1e687594c2dc37619b397b48b7"
+  },
+  "src/weather_score/weather/providers/__init__.py": {
+    "mtime": 1793200177.7299905,
+    "seen": 1793200672.963001,
+    "ast_hash": "0196c481024697a08c2334fe16df7f62",
+    "semantic_hash": "0196c481024697a08c2334fe16df7f62"
+  },
+  "src/weather_score/weather/providers/openmeteo.py": {
+    "mtime": 1793200177.7300766,
+    "seen": 1793200672.963001,
+    "ast_hash": "1acd112b203f001b3a2e4cafde6a1b38",
+    "semantic_hash": "1acd112b203f001b3a2e4cafde6a1b38"
+  },
+  "src/weather_score/weather/providers/response_weather.json": {
+    "mtime": 1793200177.7301533,
+    "seen": 1793200672.9630022,
+    "ast_hash": "258a259f4dc9c9942d762d6b62539647",
+    "semantic_hash": "258a259f4dc9c9942d762d6b62539647"
+  },
+  "src/weather_score/weather/providers/weather_api.py": {
+    "mtime": 1793200177.730301,
+    "seen": 1793200672.9630022,
+    "ast_hash": "5f5a1cbfa5da8a56cc7d38f3a5d26f42",
+    "semantic_hash": "5f5a1cbfa5da8a56cc7d38f3a5d26f42"
+  },
+  "tests/api/test_activities.py": {
+    "mtime": 1793200177.730478,
+    "seen": 1793200672.963003,
+    "ast_hash": "e19109d508abd84e5f24c972fffad38e",
+    "semantic_hash": "e19109d508abd84e5f24c972fffad38e"
+  },
+  "tests/api/test_activity_grades.py": {
+    "mtime": 1793200177.730629,
+    "seen": 1793200672.963003,
+    "ast_hash": "c942d8bdb789fac9a7e9f5842055a59e",
+    "semantic_hash": "c942d8bdb789fac9a7e9f5842055a59e"
+  },
+  "tests/api/test_database.py": {
+    "mtime": 1793200177.7306972,
+    "seen": 1793200672.9630039,
+    "ast_hash": "abbe53cd8598ba46fbeda426e17e1fb9",
+    "semantic_hash": "abbe53cd8598ba46fbeda426e17e1fb9"
+  },
+  "tests/api/test_garmin.py": {
+    "mtime": 1793200177.730842,
+    "seen": 1793200672.9630039,
+    "ast_hash": "1d17d5750a989182e04c5c27cac9355e",
+    "semantic_hash": "1d17d5750a989182e04c5c27cac9355e"
+  },
+  "tests/api/test_main.py": {
+    "mtime": 1793200177.731009,
+    "seen": 1793200672.9630048,
+    "ast_hash": "c9abd12539b6310f98c498e0d1156ba3",
+    "semantic_hash": "c9abd12539b6310f98c498e0d1156ba3"
+  },
+  "tests/api/test_package_import.py": {
+    "mtime": 1793200177.7310848,
+    "seen": 1793200672.9630048,
+    "ast_hash": "fa3d2dc40a8e6835ebffc6898bb61dc5",
+    "semantic_hash": "fa3d2dc40a8e6835ebffc6898bb61dc5"
+  },
+  "tests/api/test_profile.py": {
+    "mtime": 1793200177.7311695,
+    "seen": 1793200672.963006,
+    "ast_hash": "73ad719a43df6795907670d19de5c1f6",
+    "semantic_hash": "73ad719a43df6795907670d19de5c1f6"
+  },
+  "tests/contracts/activity_tss.json": {
+    "mtime": 1793200177.731282,
+    "seen": 1793200672.963006,
+    "ast_hash": "fb1605343d31e8154c0b6508e7fe1238",
+    "semantic_hash": "fb1605343d31e8154c0b6508e7fe1238"
+  },
+  "tests/contracts/run_grade.json": {
+    "mtime": 1793200177.7315116,
+    "seen": 1793200672.963007,
+    "ast_hash": "9280a2a8e98709e218e0c5ee201113d0",
+    "semantic_hash": "9280a2a8e98709e218e0c5ee201113d0"
+  },
+  "tests/providers/test_openmeteo.py": {
+    "mtime": 1793200177.731875,
+    "seen": 1793200672.963007,
+    "ast_hash": "8fdde17920599baeb5cd9d7932b0ea95",
+    "semantic_hash": "8fdde17920599baeb5cd9d7932b0ea95"
+  },
+  "tests/providers/test_weather_api.py": {
+    "mtime": 1793200177.7320554,
+    "seen": 1793200672.963008,
+    "ast_hash": "b46e1dc3cc48aefa6f60ab84f59a03e5",
+    "semantic_hash": "b46e1dc3cc48aefa6f60ab84f59a03e5"
+  },
+  "tests/scores/test_activity_grade.py": {
+    "mtime": 1793200177.7321951,
+    "seen": 1793200672.963008,
+    "ast_hash": "61cc3a002542af372c26cc30849ca676",
+    "semantic_hash": "61cc3a002542af372c26cc30849ca676"
+  },
+  "tests/scores/test_altitude.py": {
+    "mtime": 1793200177.7323558,
+    "seen": 1793200672.963009,
+    "ast_hash": "60a1ae4d526ff4a874549cf49e0c5642",
+    "semantic_hash": "60a1ae4d526ff4a874549cf49e0c5642"
+  },
+  "tests/scores/test_generate_grade.py": {
+    "mtime": 1793200177.732456,
+    "seen": 1793200672.963009,
+    "ast_hash": "5cb0f28309884e83a020c5df84feef19",
+    "semantic_hash": "5cb0f28309884e83a020c5df84feef19"
+  },
+  "tests/scores/test_humidity.py": {
+    "mtime": 1793200177.7325735,
+    "seen": 1793200672.96301,
+    "ast_hash": "d2db7427618ad627810d4bb056d13112",
+    "semantic_hash": "d2db7427618ad627810d4bb056d13112"
+  },
+  "tests/scores/test_rain.py": {
+    "mtime": 1793200177.7328367,
+    "seen": 1793200672.96301,
+    "ast_hash": "19245b24d891c3be06dcc192b810cec4",
+    "semantic_hash": "19245b24d891c3be06dcc192b810cec4"
+  },
+  "tests/scores/test_run_grade.py": {
+    "mtime": 1793200177.7329671,
+    "seen": 1793200672.963011,
+    "ast_hash": "bf5b132261d057238668862ae115f1d7",
+    "semantic_hash": "bf5b132261d057238668862ae115f1d7"
+  },
+  "tests/scores/test_running_predictions.py": {
+    "mtime": 1793200177.7330487,
+    "seen": 1793200672.963011,
+    "ast_hash": "a5238a41c603f4956224b0de0d54eed6",
+    "semantic_hash": "a5238a41c603f4956224b0de0d54eed6"
+  },
+  "tests/scores/test_temperature.py": {
+    "mtime": 1793200177.7332022,
+    "seen": 1793200672.963012,
+    "ast_hash": "c8ef22b0f61faff94022bdc771b89fd7",
+    "semantic_hash": "c8ef22b0f61faff94022bdc771b89fd7"
+  },
+  "tests/scores/test_training_stress.py": {
+    "mtime": 1793200177.7333772,
+    "seen": 1793200672.963012,
+    "ast_hash": "b0610e3bfb9cc90a32ac76485cad9723",
+    "semantic_hash": "b0610e3bfb9cc90a32ac76485cad9723"
+  },
+  "tests/scores/test_weekly_training.py": {
+    "mtime": 1793200177.7334473,
+    "seen": 1793200672.9630132,
+    "ast_hash": "0d50c0e4add1e9d7d7f15fae77674e2d",
+    "semantic_hash": "0d50c0e4add1e9d7d7f15fae77674e2d"
+  },
+  "tests/scores/test_wind.py": {
+    "mtime": 1793200177.7335122,
+    "seen": 1793200672.9630132,
+    "ast_hash": "9204405f8c0a9ebaa23396eb71ccb2ea",
+    "semantic_hash": "9204405f8c0a9ebaa23396eb71ccb2ea"
+  },
+  "tests/test_download_garmindb.py": {
+    "mtime": 1793200177.7335732,
+    "seen": 1793200672.963014,
+    "ast_hash": "cfe4a8e959d036f1e30553974ede794e",
+    "semantic_hash": "cfe4a8e959d036f1e30553974ede794e"
+  },
+  "tests/test_import_garmindb.py": {
+    "mtime": 1793200177.7336388,
+    "seen": 1793200672.963014,
+    "ast_hash": "b5cbc5f74c3ca26c65b987e81ad15746",
+    "semantic_hash": "b5cbc5f74c3ca26c65b987e81ad15746"
+  },
+  "tests/test_initialize_postgres.py": {
+    "mtime": 1793200177.7337098,
+    "seen": 1793200672.9630148,
+    "ast_hash": "0cca9299f24dcb21eb876863f695d171",
+    "semantic_hash": "0cca9299f24dcb21eb876863f695d171"
+  },
+  "tests/test_notify_openbot.py": {
+    "mtime": 1793200177.733889,
+    "seen": 1793200672.9630148,
+    "ast_hash": "a5f91dde058780d6b73a0f434b986d88",
+    "semantic_hash": "a5f91dde058780d6b73a0f434b986d88"
+  },
+  "tests/test_sync_garmindb.py": {
+    "mtime": 1793200177.7340121,
+    "seen": 1793200672.963016,
+    "ast_hash": "c69728af751288dc5a6bd52018ec5e96",
+    "semantic_hash": "c69728af751288dc5a6bd52018ec5e96"
+  },
+  ".agents/skills/data-viz/SKILL.md": {
+    "mtime": 1793200177.5549104,
+    "seen": 1793200672.963016,
+    "ast_hash": "942a756bfbf5ed57b9992947270a83da",
+    "semantic_hash": "942a756bfbf5ed57b9992947270a83da"
+  },
+  ".agents/skills/ponytail/SKILL.md": {
+    "mtime": 1793200177.5550876,
+    "seen": 1793200672.963017,
+    "ast_hash": "47edb061039a66b78d7269885226506e",
+    "semantic_hash": "47edb061039a66b78d7269885226506e"
+  },
+  ".agents/skills/revenue-centric-design/SKILL.md": {
+    "mtime": 1793200177.5553606,
+    "seen": 1793200672.963017,
+    "ast_hash": "3ef6e200f1e49688f3ca1f1767901973",
+    "semantic_hash": "3ef6e200f1e49688f3ca1f1767901973"
+  },
+  ".agents/skills/revenue-centric-design/references/ai-era-differentiation.md": {
+    "mtime": 1793200177.6994357,
+    "seen": 1793200672.963018,
+    "ast_hash": "ccce32898e3b94de431533d40f8a14ae",
+    "semantic_hash": "ccce32898e3b94de431533d40f8a14ae"
+  },
+  ".agents/skills/revenue-centric-design/references/behavioral-science-toolkit.md": {
+    "mtime": 1793200177.6996262,
+    "seen": 1793200672.963018,
+    "ast_hash": "670ef8dbc1bd2a0601410a171ae00e27",
+    "semantic_hash": "670ef8dbc1bd2a0601410a171ae00e27"
+  },
+  ".agents/skills/revenue-centric-design/references/checkout-and-forms.md": {
+    "mtime": 1793200177.7000787,
+    "seen": 1793200672.963019,
+    "ast_hash": "c8b4ab20912e0656c6a6999a0d0aac97",
+    "semantic_hash": "c8b4ab20912e0656c6a6999a0d0aac97"
+  },
+  ".agents/skills/revenue-centric-design/references/churn-and-retention.md": {
+    "mtime": 1793200177.7005727,
+    "seen": 1793200672.963019,
+    "ast_hash": "266dc80963c31aab090c8489ac5de2ff",
+    "semantic_hash": "266dc80963c31aab090c8489ac5de2ff"
+  },
+  ".agents/skills/revenue-centric-design/references/conversion-and-landing-pages.md": {
+    "mtime": 1793200177.7007382,
+    "seen": 1793200672.96302,
+    "ast_hash": "64038accc5d8f24ce6e18b1532b0ff07",
+    "semantic_hash": "64038accc5d8f24ce6e18b1532b0ff07"
+  },
+  ".agents/skills/revenue-centric-design/references/dashboards-and-data-viz.md": {
+    "mtime": 1793200177.7009215,
+    "seen": 1793200672.96302,
+    "ast_hash": "58d9200eeb5f45b6b5e3e99eef9df88b",
+    "semantic_hash": "58d9200eeb5f45b6b5e3e99eef9df88b"
+  },
+  ".agents/skills/revenue-centric-design/references/metrics-and-experimentation.md": {
+    "mtime": 1793200177.7010782,
+    "seen": 1793200672.963021,
+    "ast_hash": "589271f441e9d56627f2e2c99cea4581",
+    "semantic_hash": "589271f441e9d56627f2e2c99cea4581"
+  },
+  ".agents/skills/revenue-centric-design/references/onboarding-and-activation.md": {
+    "mtime": 1793200177.7011871,
+    "seen": 1793200672.963021,
+    "ast_hash": "5b04e6be2d3746fc0b2dcefa4606191f",
+    "semantic_hash": "5b04e6be2d3746fc0b2dcefa4606191f"
+  },
+  ".agents/skills/revenue-centric-design/references/positioning-icp-and-gtm.md": {
+    "mtime": 1793200177.7014556,
+    "seen": 1793200672.963022,
+    "ast_hash": "b6fada21e057bfbd56759c9e32559953",
+    "semantic_hash": "b6fada21e057bfbd56759c9e32559953"
+  },
+  ".agents/skills/revenue-centric-design/references/pricing-and-monetization.md": {
+    "mtime": 1793200177.7015643,
+    "seen": 1793200672.963022,
+    "ast_hash": "77c47d68c306715b05d8bfe2381223ef",
+    "semantic_hash": "77c47d68c306715b05d8bfe2381223ef"
+  },
+  ".agents/skills/revenue-centric-design/references/product-strategy-and-features.md": {
+    "mtime": 1793200177.7016835,
+    "seen": 1793200672.9630232,
+    "ast_hash": "ad5db48b76d0c8e2a3fc294cb06a62ec",
+    "semantic_hash": "ad5db48b76d0c8e2a3fc294cb06a62ec"
+  },
+  ".agents/skills/revenue-centric-design/references/revenue-centric-design.md": {
+    "mtime": 1793200177.7017784,
+    "seen": 1793200672.9630232,
+    "ast_hash": "05b01dfc9bbf43427f49a179118ef8cb",
+    "semantic_hash": "05b01dfc9bbf43427f49a179118ef8cb"
+  },
+  ".github/pull_request_template.md": {
+    "mtime": 1793200177.7021537,
+    "seen": 1793200672.963024,
+    "ast_hash": "e22d255e98951860b7dc6d4e8de42cd0",
+    "semantic_hash": "e22d255e98951860b7dc6d4e8de42cd0"
+  },
+  "AGENTS.md": {
+    "mtime": 1793200177.7029784,
+    "seen": 1793200672.963024,
+    "ast_hash": "d5471988083efb1461683ead774ff310",
+    "semantic_hash": "d5471988083efb1461683ead774ff310"
+  },
+  "README.md": {
+    "mtime": 1793200177.7032082,
+    "seen": 1793200672.9630249,
+    "ast_hash": "7d5171596578cde5d12911fa49502084",
+    "semantic_hash": "7d5171596578cde5d12911fa49502084"
+  },
+  "apps/api/README.md": {
+    "mtime": 1793200177.7034917,
+    "seen": 1793200672.9630249,
+    "ast_hash": "5e21a6a2bd3fb31dd645b3a7cd9eb346",
+    "semantic_hash": "5e21a6a2bd3fb31dd645b3a7cd9eb346"
+  },
+  "apps/web/.agents/skills/ui-ux-pro-max/SKILL.md": {
+    "mtime": 1793200177.7072823,
+    "seen": 1793200672.9630249,
+    "ast_hash": "2890b07734cd1e217fb4cdd2cdcbeb92",
+    "semantic_hash": "2890b07734cd1e217fb4cdd2cdcbeb92"
+  },
+  "apps/web/README.md": {
+    "mtime": 1793200177.7221684,
+    "seen": 1793200672.9630258,
+    "ast_hash": "9fc285455d1f4612388baa45255d4223",
+    "semantic_hash": "9fc285455d1f4612388baa45255d4223"
+  },
+  "apps/web/index.html": {
+    "mtime": 1793200177.7222674,
+    "seen": 1793200672.9630258,
+    "ast_hash": "2ef031caa35f5049fc39da8790608773",
+    "semantic_hash": "2ef031caa35f5049fc39da8790608773"
+  },
+  "apps/web/skill.txt": {
+    "mtime": 1793200177.722688,
+    "seen": 1793200672.963027,
+    "ast_hash": "fa50b225815ea9b6ecd89ae34084851b",
+    "semantic_hash": "fa50b225815ea9b6ecd89ae34084851b"
+  },
+  "docs/activity-api.md": {
+    "mtime": 1793200177.7270563,
+    "seen": 1793200672.963027,
+    "ast_hash": "172b622042536cac45905a743de71ce2",
+    "semantic_hash": "172b622042536cac45905a743de71ce2"
+  },
+  "docs/function-naming.md": {
+    "mtime": 1793200177.7271183,
+    "seen": 1793200672.963028,
+    "ast_hash": "11b58b90a745b45e0b2dc9fd70ce80de",
+    "semantic_hash": "11b58b90a745b45e0b2dc9fd70ce80de"
+  },
+  "docs/garmin-sync.md": {
+    "mtime": 1793200177.7272527,
+    "seen": 1793200672.963028,
+    "ast_hash": "f3c390135b37cf2be6ac588a29e5868f",
+    "semantic_hash": "f3c390135b37cf2be6ac588a29e5868f"
+  },
+  "docs/implementation-notes.md": {
+    "mtime": 1793200177.727315,
+    "seen": 1793200672.963029,
+    "ast_hash": "97fa6de99353717097f916f228a1a1e6",
+    "semantic_hash": "97fa6de99353717097f916f228a1a1e6"
+  },
+  "docs/openbot-notifications.md": {
+    "mtime": 1793200177.7273784,
+    "seen": 1793200672.963029,
+    "ast_hash": "7045ee2d176418eb8987e82954058ab1",
+    "semantic_hash": "7045ee2d176418eb8987e82954058ab1"
+  },
+  "docs/postgres-schema.md": {
+    "mtime": 1793200177.7274451,
+    "seen": 1793200672.96303,
+    "ast_hash": "e106befde686951c5e67b15f3fe4c084",
+    "semantic_hash": "e106befde686951c5e67b15f3fe4c084"
+  },
+  "docs/run-grade.md": {
+    "mtime": 1793200177.7275896,
+    "seen": 1793200672.96303,
+    "ast_hash": "7010daa0bf96c541eba7d4a33141bec3",
+    "semantic_hash": "7010daa0bf96c541eba7d4a33141bec3"
+  },
+  "docs/running-prediction-data.md": {
+    "mtime": 1793200177.7277277,
+    "seen": 1793200672.963031,
+    "ast_hash": "e59dfaa8021ad802ba9958a2ccde6940",
+    "semantic_hash": "e59dfaa8021ad802ba9958a2ccde6940"
+  },
+  "docs/training-stress.md": {
+    "mtime": 1793200177.72791,
+    "seen": 1793200672.963032,
+    "ast_hash": "ff6e72d2ceaf3c6228a148957dffe0d3",
+    "semantic_hash": "ff6e72d2ceaf3c6228a148957dffe0d3"
+  },
+  "notes.txt": {
+    "mtime": 1793200177.7281024,
+    "seen": 1793200672.963032,
+    "ast_hash": "f7ef8e617a396dc9b00e0a4005c00d6f",
+    "semantic_hash": "f7ef8e617a396dc9b00e0a4005c00d6f"
+  },
+  ".agents/skills/revenue-centric-design/assets/1985681720104903142__1.jpg": {
+    "mtime": 1793200177.5559294,
+    "seen": 1793200672.9630332,
+    "ast_hash": "0b934285a838077e1199c60294323fa0",
+    "semantic_hash": "0b934285a838077e1199c60294323fa0"
+  },
+  ".agents/skills/revenue-centric-design/assets/1999584679247134761__1.jpg": {
+    "mtime": 1793200177.5562344,
+    "seen": 1793200672.9630332,
+    "ast_hash": "9cb06a7cddaae601b0331b0e6b7a5efd",
+    "semantic_hash": "9cb06a7cddaae601b0331b0e6b7a5efd"
+  },
+  ".agents/skills/revenue-centric-design/assets/2000930776636940333__1.jpg": {
+    "mtime": 1793200177.5578973,
+    "seen": 1793200672.9630342,
+    "ast_hash": "c6c546cc3e103952c4032d64611c8c93",
+    "semantic_hash": "c6c546cc3e103952c4032d64611c8c93"
+  },
+  ".agents/skills/revenue-centric-design/assets/2011427153133351046__1.jpg": {
+    "mtime": 1793200177.5581665,
+    "seen": 1793200672.9630342,
+    "ast_hash": "8f929e0b14c56dba7e10dbdafbca5271",
+    "semantic_hash": "8f929e0b14c56dba7e10dbdafbca5271"
+  },
+  ".agents/skills/revenue-centric-design/assets/2011427153133351046__2.jpg": {
+    "mtime": 1793200177.5583618,
+    "seen": 1793200672.9630349,
+    "ast_hash": "ee26b2bb80d28fcdef627b29f33882e4",
+    "semantic_hash": "ee26b2bb80d28fcdef627b29f33882e4"
+  },
+  ".agents/skills/revenue-centric-design/assets/2011427153133351046__3.jpg": {
+    "mtime": 1793200177.5590866,
+    "seen": 1793200672.9630349,
+    "ast_hash": "08278c5912118410534e58d6c88e0108",
+    "semantic_hash": "08278c5912118410534e58d6c88e0108"
+  },
+  ".agents/skills/revenue-centric-design/assets/2013264068518289753__1.jpg": {
+    "mtime": 1793200177.559345,
+    "seen": 1793200672.9630358,
+    "ast_hash": "373cf12546e0c00218483abae85329ac",
+    "semantic_hash": "373cf12546e0c00218483abae85329ac"
+  },
+  ".agents/skills/revenue-centric-design/assets/2013264068518289753__2.jpg": {
+    "mtime": 1793200177.5596466,
+    "seen": 1793200672.9630358,
+    "ast_hash": "ee03153647eb5e1580292aee4bec4ca7",
+    "semantic_hash": "ee03153647eb5e1580292aee4bec4ca7"
+  },
+  ".agents/skills/revenue-centric-design/assets/2013597792447394034__1.jpg": {
+    "mtime": 1793200177.5604033,
+    "seen": 1793200672.963037,
+    "ast_hash": "e79eeb0be1b5bbd6c219ebafd51f6ecd",
+    "semantic_hash": "e79eeb0be1b5bbd6c219ebafd51f6ecd"
+  },
+  ".agents/skills/revenue-centric-design/assets/2014317885494059106__1.jpg": {
+    "mtime": 1793200177.5608733,
+    "seen": 1793200672.963038,
+    "ast_hash": "e8bcf2aed59f5638c0f055afd863c4f5",
+    "semantic_hash": "e8bcf2aed59f5638c0f055afd863c4f5"
+  },
+  ".agents/skills/revenue-centric-design/assets/2017274698699067466__1.jpg": {
+    "mtime": 1793200177.5609984,
+    "seen": 1793200672.963038,
+    "ast_hash": "c2a68a2f144d41dc8aedba79628bbbfb",
+    "semantic_hash": "c2a68a2f144d41dc8aedba79628bbbfb"
+  },
+  ".agents/skills/revenue-centric-design/assets/2018357024543715480__1.jpg": {
+    "mtime": 1793200177.5615613,
+    "seen": 1793200672.963039,
+    "ast_hash": "4f00235b9cf012f63066123007b00f39",
+    "semantic_hash": "4f00235b9cf012f63066123007b00f39"
+  },
+  ".agents/skills/revenue-centric-design/assets/2018693884449009956__1.jpg": {
+    "mtime": 1793200177.5617385,
+    "seen": 1793200672.963039,
+    "ast_hash": "710959bb0318e8f0392a346642fc324b",
+    "semantic_hash": "710959bb0318e8f0392a346642fc324b"
+  },
+  ".agents/skills/revenue-centric-design/assets/2018693884449009956__2.jpg": {
+    "mtime": 1793200177.5620298,
+    "seen": 1793200672.96304,
+    "ast_hash": "0e9078bb08689b83e13d4fce0060e510",
+    "semantic_hash": "0e9078bb08689b83e13d4fce0060e510"
+  },
+  ".agents/skills/revenue-centric-design/assets/2018693884449009956__3.jpg": {
+    "mtime": 1793200177.5630038,
+    "seen": 1793200672.96304,
+    "ast_hash": "e80e543ae6ff2b1680d1b58d5ee1861e",
+    "semantic_hash": "e80e543ae6ff2b1680d1b58d5ee1861e"
+  },
+  ".agents/skills/revenue-centric-design/assets/2018693884449009956__4.jpg": {
+    "mtime": 1793200177.563256,
+    "seen": 1793200672.963041,
+    "ast_hash": "06d7dc47d65385d2d56e58124a5b1b72",
+    "semantic_hash": "06d7dc47d65385d2d56e58124a5b1b72"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019019293761941566__1.jpg": {
+    "mtime": 1793200177.5645452,
+    "seen": 1793200672.963041,
+    "ast_hash": "2cece2f7215f04e7417585b144d963e0",
+    "semantic_hash": "2cece2f7215f04e7417585b144d963e0"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019019293761941566__10.jpg": {
+    "mtime": 1793200177.5649328,
+    "seen": 1793200672.963042,
+    "ast_hash": "711a537cc39b63f0b3e571093896b357",
+    "semantic_hash": "711a537cc39b63f0b3e571093896b357"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019019293761941566__2.jpg": {
+    "mtime": 1793200177.5653877,
+    "seen": 1793200672.963042,
+    "ast_hash": "e07a0efd5a67b596c0deb917971cd9bd",
+    "semantic_hash": "e07a0efd5a67b596c0deb917971cd9bd"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019019293761941566__3.jpg": {
+    "mtime": 1793200177.5656645,
+    "seen": 1793200672.963043,
+    "ast_hash": "f087ae66b038808c7e2bf8e3ebc9dbdb",
+    "semantic_hash": "f087ae66b038808c7e2bf8e3ebc9dbdb"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019019293761941566__4.jpg": {
+    "mtime": 1793200177.5660796,
+    "seen": 1793200672.963043,
+    "ast_hash": "93b35773aaa55e7cf31646db5768ab77",
+    "semantic_hash": "93b35773aaa55e7cf31646db5768ab77"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019019293761941566__5.jpg": {
+    "mtime": 1793200177.5662925,
+    "seen": 1793200672.9630442,
+    "ast_hash": "faf056e6483443d844afcb1e56fd77d9",
+    "semantic_hash": "faf056e6483443d844afcb1e56fd77d9"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019019293761941566__6.jpg": {
+    "mtime": 1793200177.5666025,
+    "seen": 1793200672.9630451,
+    "ast_hash": "b0fac4e037dd1bad4a617cfda26598d3",
+    "semantic_hash": "b0fac4e037dd1bad4a617cfda26598d3"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019019293761941566__7.jpg": {
+    "mtime": 1793200177.56715,
+    "seen": 1793200672.9630451,
+    "ast_hash": "b31d1d7621523cb8df7dd2cc1e4563d6",
+    "semantic_hash": "b31d1d7621523cb8df7dd2cc1e4563d6"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019019293761941566__8.jpg": {
+    "mtime": 1793200177.568041,
+    "seen": 1793200672.9630458,
+    "ast_hash": "bf2f3cde6dcba86ac29f9366b7973842",
+    "semantic_hash": "bf2f3cde6dcba86ac29f9366b7973842"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019019293761941566__9.jpg": {
+    "mtime": 1793200177.5683193,
+    "seen": 1793200672.9630458,
+    "ast_hash": "a5ad0a077f7b4181c061a249cd1339d7",
+    "semantic_hash": "a5ad0a077f7b4181c061a249cd1339d7"
+  },
+  ".agents/skills/revenue-centric-design/assets/2019514730696565238__1.jpg": {
+    "mtime": 1793200177.5698743,
+    "seen": 1793200672.963047,
+    "ast_hash": "4b89a42fecb015b61b70476576b3be54",
+    "semantic_hash": "4b89a42fecb015b61b70476576b3be54"
+  },
+  ".agents/skills/revenue-centric-design/assets/2022255404743381289__1.jpg": {
+    "mtime": 1793200177.570116,
+    "seen": 1793200672.963047,
+    "ast_hash": "04b7284964f7f889f18a94d7e47e54e8",
+    "semantic_hash": "04b7284964f7f889f18a94d7e47e54e8"
+  },
+  ".agents/skills/revenue-centric-design/assets/2022255404743381289__2.jpg": {
+    "mtime": 1793200177.5703151,
+    "seen": 1793200672.963047,
+    "ast_hash": "9d39d06d9d07359f66e389e6ff27a24c",
+    "semantic_hash": "9d39d06d9d07359f66e389e6ff27a24c"
+  },
+  ".agents/skills/revenue-centric-design/assets/2022255404743381289__3.jpg": {
+    "mtime": 1793200177.5707712,
+    "seen": 1793200672.963048,
+    "ast_hash": "6d2267c1711e27c4cf491035e998ee75",
+    "semantic_hash": "6d2267c1711e27c4cf491035e998ee75"
+  },
+  ".agents/skills/revenue-centric-design/assets/2022255404743381289__4.jpg": {
+    "mtime": 1793200177.5715687,
+    "seen": 1793200672.963048,
+    "ast_hash": "4735e6bf1cd2248ea014eb8c247d1091",
+    "semantic_hash": "4735e6bf1cd2248ea014eb8c247d1091"
+  },
+  ".agents/skills/revenue-centric-design/assets/2022255404743381289__5.jpg": {
+    "mtime": 1793200177.5720258,
+    "seen": 1793200672.963049,
+    "ast_hash": "6d85a5a20683db69c60466a4a8224454",
+    "semantic_hash": "6d85a5a20683db69c60466a4a8224454"
+  },
+  ".agents/skills/revenue-centric-design/assets/2023777916673220817__q__1.jpg": {
+    "mtime": 1793200177.5769567,
+    "seen": 1793200672.963049,
+    "ast_hash": "378611e51d3166491912569ef7a4e95c",
+    "semantic_hash": "378611e51d3166491912569ef7a4e95c"
+  },
+  ".agents/skills/revenue-centric-design/assets/2024141244717281514__1.jpg": {
+    "mtime": 1793200177.6648538,
+    "seen": 1793200672.96305,
+    "ast_hash": "e64243020f1ea0af32cc07c03d03d140",
+    "semantic_hash": "e64243020f1ea0af32cc07c03d03d140"
+  },
+  ".agents/skills/revenue-centric-design/assets/2025246347587162602__q__1.jpg": {
+    "mtime": 1793200177.6653008,
+    "seen": 1793200672.96305,
+    "ast_hash": "9bfbb17e43a721a03177530d582f6c28",
+    "semantic_hash": "9bfbb17e43a721a03177530d582f6c28"
+  },
+  ".agents/skills/revenue-centric-design/assets/2026605258152038780__1.jpg": {
+    "mtime": 1793200177.6656299,
+    "seen": 1793200672.963051,
+    "ast_hash": "edc4f88804c470468cc35987da79360b",
+    "semantic_hash": "edc4f88804c470468cc35987da79360b"
+  },
+  ".agents/skills/revenue-centric-design/assets/2026978144343687177__q__1.jpg": {
+    "mtime": 1793200177.6678667,
+    "seen": 1793200672.963051,
+    "ast_hash": "9a403b023207471527ea1e46816f0352",
+    "semantic_hash": "9a403b023207471527ea1e46816f0352"
+  },
+  ".agents/skills/revenue-centric-design/assets/2028471666297217460__1.jpg": {
+    "mtime": 1793200177.6688929,
+    "seen": 1793200672.963052,
+    "ast_hash": "efaf6eaa13006389499e3a0b945b6da7",
+    "semantic_hash": "efaf6eaa13006389499e3a0b945b6da7"
+  },
+  ".agents/skills/revenue-centric-design/assets/2028777831233114152__q__1.jpg": {
+    "mtime": 1793200177.6695106,
+    "seen": 1793200672.963052,
+    "ast_hash": "b4da343723a3b90a8d998a94996bca83",
+    "semantic_hash": "b4da343723a3b90a8d998a94996bca83"
+  },
+  ".agents/skills/revenue-centric-design/assets/2028837448717926518__1.jpg": {
+    "mtime": 1793200177.6698842,
+    "seen": 1793200672.963053,
+    "ast_hash": "eb4e38dee1d7e2e886a2b6c06417606a",
+    "semantic_hash": "eb4e38dee1d7e2e886a2b6c06417606a"
+  },
+  ".agents/skills/revenue-centric-design/assets/2029226965580804593__1.jpg": {
+    "mtime": 1793200177.670297,
+    "seen": 1793200672.963053,
+    "ast_hash": "4bb272fca84a84766ca6190de59efbe8",
+    "semantic_hash": "4bb272fca84a84766ca6190de59efbe8"
+  },
+  ".agents/skills/revenue-centric-design/assets/2029623167900061970__1.jpg": {
+    "mtime": 1793200177.6712384,
+    "seen": 1793200672.9630542,
+    "ast_hash": "8bd788152672c0dc3a79cd9e5fc1beb0",
+    "semantic_hash": "8bd788152672c0dc3a79cd9e5fc1beb0"
+  },
+  ".agents/skills/revenue-centric-design/assets/2031722047080960265__q__1.jpg": {
+    "mtime": 1793200177.6727707,
+    "seen": 1793200672.9630542,
+    "ast_hash": "007b5bd015c790c6e0c0dc71b2fc79a3",
+    "semantic_hash": "007b5bd015c790c6e0c0dc71b2fc79a3"
+  },
+  ".agents/skills/revenue-centric-design/assets/2031722047080960265__q__2.jpg": {
+    "mtime": 1793200177.6730096,
+    "seen": 1793200672.9630551,
+    "ast_hash": "2a83e78b194e72c5ec4dfd41d1286bac",
+    "semantic_hash": "2a83e78b194e72c5ec4dfd41d1286bac"
+  },
+  ".agents/skills/revenue-centric-design/assets/2031722047080960265__q__3.jpg": {
+    "mtime": 1793200177.6731954,
+    "seen": 1793200672.9630551,
+    "ast_hash": "460e29215009f11aa3b0b70588f00aa1",
+    "semantic_hash": "460e29215009f11aa3b0b70588f00aa1"
+  },
+  ".agents/skills/revenue-centric-design/assets/2031722047080960265__q__4.jpg": {
+    "mtime": 1793200177.6733806,
+    "seen": 1793200672.963056,
+    "ast_hash": "c2e3be63ba0159529c5985ad4058d9b2",
+    "semantic_hash": "c2e3be63ba0159529c5985ad4058d9b2"
+  },
+  ".agents/skills/revenue-centric-design/assets/2033880553607364684__1.jpg": {
+    "mtime": 1793200177.673978,
+    "seen": 1793200672.963056,
+    "ast_hash": "76a8d69237784b87f504ee334adc30ce",
+    "semantic_hash": "76a8d69237784b87f504ee334adc30ce"
+  },
+  ".agents/skills/revenue-centric-design/assets/2034638793219694734__q__1.jpg": {
+    "mtime": 1793200177.677807,
+    "seen": 1793200672.9630568,
+    "ast_hash": "3e53165fc6bb4e7d35a6b08bd1f5d7cf",
+    "semantic_hash": "3e53165fc6bb4e7d35a6b08bd1f5d7cf"
+  },
+  ".agents/skills/revenue-centric-design/assets/2036035304868434115__1.jpg": {
+    "mtime": 1793200177.6781225,
+    "seen": 1793200672.9630568,
+    "ast_hash": "b74794a2e56f102560ca228c190c1798",
+    "semantic_hash": "b74794a2e56f102560ca228c190c1798"
+  },
+  ".agents/skills/revenue-centric-design/assets/2036461688505909250__1.jpg": {
+    "mtime": 1793200177.678847,
+    "seen": 1793200672.963058,
+    "ast_hash": "a40f6390daea8dfccdd90a9b4db988bf",
+    "semantic_hash": "a40f6390daea8dfccdd90a9b4db988bf"
+  },
+  ".agents/skills/revenue-centric-design/assets/2037316988981174464__1.jpg": {
+    "mtime": 1793200177.6793544,
+    "seen": 1793200672.963058,
+    "ast_hash": "b54053da6d1eda412b4f873b4257d475",
+    "semantic_hash": "b54053da6d1eda412b4f873b4257d475"
+  },
+  ".agents/skills/revenue-centric-design/assets/2037583944283996418__1.jpg": {
+    "mtime": 1793200177.6812828,
+    "seen": 1793200672.963059,
+    "ast_hash": "1f8749dcbc8a37969c48f915ff324a93",
+    "semantic_hash": "1f8749dcbc8a37969c48f915ff324a93"
+  },
+  ".agents/skills/revenue-centric-design/assets/2039399756452057159__1.jpg": {
+    "mtime": 1793200177.6825006,
+    "seen": 1793200672.963059,
+    "ast_hash": "ce4bfb624a743200deb70e755f056cd0",
+    "semantic_hash": "ce4bfb624a743200deb70e755f056cd0"
+  },
+  ".agents/skills/revenue-centric-design/assets/2040415841628651689__1.jpg": {
+    "mtime": 1793200177.682926,
+    "seen": 1793200672.96306,
+    "ast_hash": "4130cedbae31de6b8352940a98e32973",
+    "semantic_hash": "4130cedbae31de6b8352940a98e32973"
+  },
+  ".agents/skills/revenue-centric-design/assets/2041829519611371727__1.jpg": {
+    "mtime": 1793200177.683423,
+    "seen": 1793200672.96306,
+    "ast_hash": "d1549c90484c6188a5d73a3d9512b0bf",
+    "semantic_hash": "d1549c90484c6188a5d73a3d9512b0bf"
+  },
+  ".agents/skills/revenue-centric-design/assets/2042013751742705816__1.jpg": {
+    "mtime": 1793200177.68375,
+    "seen": 1793200672.963061,
+    "ast_hash": "bacba0e7c28d61baadaa71a8f345411e",
+    "semantic_hash": "bacba0e7c28d61baadaa71a8f345411e"
+  },
+  ".agents/skills/revenue-centric-design/assets/2042558822825239030__1.jpg": {
+    "mtime": 1793200177.6841571,
+    "seen": 1793200672.963061,
+    "ast_hash": "a25ef229982dfc0e02d002206bf17a3b",
+    "semantic_hash": "a25ef229982dfc0e02d002206bf17a3b"
+  },
+  ".agents/skills/revenue-centric-design/assets/2054283657934758021__1.jpg": {
+    "mtime": 1793200177.6848857,
+    "seen": 1793200672.963062,
+    "ast_hash": "91dc86dc4a8c6bc3c958cefa77c81382",
+    "semantic_hash": "91dc86dc4a8c6bc3c958cefa77c81382"
+  },
+  ".agents/skills/revenue-centric-design/assets/2054910531132183030__1.jpg": {
+    "mtime": 1793200177.6891847,
+    "seen": 1793200672.963062,
+    "ast_hash": "2d5405515bc94b7797ae407bbd958819",
+    "semantic_hash": "2d5405515bc94b7797ae407bbd958819"
+  },
+  ".agents/skills/revenue-centric-design/assets/2057124008445796659__1.jpg": {
+    "mtime": 1793200177.689741,
+    "seen": 1793200672.963063,
+    "ast_hash": "76a8d69237784b87f504ee334adc30ce",
+    "semantic_hash": "76a8d69237784b87f504ee334adc30ce"
+  },
+  ".agents/skills/revenue-centric-design/assets/2057872036718899256__1.jpg": {
+    "mtime": 1793200177.6899683,
+    "seen": 1793200672.963063,
+    "ast_hash": "e930ad828a05ad434c26f7d1c9aaf0bb",
+    "semantic_hash": "e930ad828a05ad434c26f7d1c9aaf0bb"
+  },
+  ".agents/skills/revenue-centric-design/assets/2059236567533650119__1.jpg": {
+    "mtime": 1793200177.6910822,
+    "seen": 1793200672.963064,
+    "ast_hash": "b4adce259b08c9549c6443bc7a004975",
+    "semantic_hash": "b4adce259b08c9549c6443bc7a004975"
+  },
+  ".agents/skills/revenue-centric-design/assets/2059951433827426437__1.jpg": {
+    "mtime": 1793200177.6923122,
+    "seen": 1793200672.963064,
+    "ast_hash": "068deccc09b8f0bfcf3a38c162014537",
+    "semantic_hash": "068deccc09b8f0bfcf3a38c162014537"
+  },
+  ".agents/skills/revenue-centric-design/assets/2059997257156399233__1.jpg": {
+    "mtime": 1793200177.6930263,
+    "seen": 1793200672.9630651,
+    "ast_hash": "d60d5a5631facc5bbfc5ef5f299d1543",
+    "semantic_hash": "d60d5a5631facc5bbfc5ef5f299d1543"
+  },
+  ".agents/skills/revenue-centric-design/assets/2059997257156399233__2.jpg": {
+    "mtime": 1793200177.6938121,
+    "seen": 1793200672.9630651,
+    "ast_hash": "e1a9de885a16481fcacd51c67bb1b8b4",
+    "semantic_hash": "e1a9de885a16481fcacd51c67bb1b8b4"
+  },
+  ".agents/skills/revenue-centric-design/assets/2059997257156399233__3.jpg": {
+    "mtime": 1793200177.6945229,
+    "seen": 1793200672.963066,
+    "ast_hash": "33f1ead9c28b6cf40f837afd04b9b5e0",
+    "semantic_hash": "33f1ead9c28b6cf40f837afd04b9b5e0"
+  },
+  ".agents/skills/revenue-centric-design/assets/2062554393447141438__1.jpg": {
+    "mtime": 1793200177.6951706,
+    "seen": 1793200672.963066,
+    "ast_hash": "48d8fd133e4d137a515e8e850e8ddf2a",
+    "semantic_hash": "48d8fd133e4d137a515e8e850e8ddf2a"
+  },
+  ".agents/skills/revenue-centric-design/assets/2062621019978760424__1.jpg": {
+    "mtime": 1793200177.6953669,
+    "seen": 1793200672.9630668,
+    "ast_hash": "4f0e452b827043bee0f57a02e03c88ca",
+    "semantic_hash": "4f0e452b827043bee0f57a02e03c88ca"
+  },
+  ".agents/skills/revenue-centric-design/assets/2067987722954735812__1.jpg": {
+    "mtime": 1793200177.69676,
+    "seen": 1793200672.9630668,
+    "ast_hash": "223bab3006ce56bc35777e51f521b550",
+    "semantic_hash": "223bab3006ce56bc35777e51f521b550"
+  },
+  ".agents/skills/revenue-centric-design/assets/2070140923380420796__1.jpg": {
+    "mtime": 1793200177.6969695,
+    "seen": 1793200672.963068,
+    "ast_hash": "ef4b1f312c553a2abeee165c8a9747ca",
+    "semantic_hash": "ef4b1f312c553a2abeee165c8a9747ca"
+  },
+  ".agents/skills/revenue-centric-design/assets/2081714430811730162__1.jpg": {
+    "mtime": 1793200177.6971464,
+    "seen": 1793200672.963068,
+    "ast_hash": "fda96953a01f16d9e486b7cc039ee5d3",
+    "semantic_hash": "fda96953a01f16d9e486b7cc039ee5d3"
+  },
+  ".agents/skills/revenue-centric-design/assets/2092692547244007852__q__1.jpg": {
+    "mtime": 1793200177.6982443,
+    "seen": 1793200672.963069,
+    "ast_hash": "4f10a39b0d19e296539cd45ffb8c201f",
+    "semantic_hash": "4f10a39b0d19e296539cd45ffb8c201f"
+  },
+  ".agents/skills/revenue-centric-design/assets/2092692547244007852__q__2.jpg": {
+    "mtime": 1793200177.6986992,
+    "seen": 1793200672.963069,
+    "ast_hash": "04f295a3d6b25e506f6e490b78fafdc9",
+    "semantic_hash": "04f295a3d6b25e506f6e490b78fafdc9"
+  },
+  ".agents/skills/revenue-centric-design/assets/2092692547244007852__q__3.jpg": {
+    "mtime": 1793200177.6991367,
+    "seen": 1793200672.96307,
+    "ast_hash": "22d9c3566002588e4a1de70f053c3599",
+    "semantic_hash": "22d9c3566002588e4a1de70f053c3599"
+  },
+  "apps/web/public/favicon.svg": {
+    "mtime": 1793200177.7226005,
+    "seen": 1793200672.96307,
+    "ast_hash": "92fa0c55f635624064bceaf1d65d9f6d",
+    "semantic_hash": "92fa0c55f635624064bceaf1d65d9f6d"
+  },
+  ".agents/skills/revenue-centric-design/assets/2024076972565963186__q__1.mp4": {
+    "mtime": 1793200177.6624284,
+    "seen": 1793200672.9630709,
+    "ast_hash": "2516c93085fcc4ca10f76ae4ccb108d7",
+    "semantic_hash": "2516c93085fcc4ca10f76ae4ccb108d7"
+  }
+}
