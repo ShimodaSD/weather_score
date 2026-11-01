@@ -65,6 +65,8 @@ def fetch_activities(directory: Path, count: int) -> None:
             {"Authorization": f"Bearer {token}", "Accept": "application/json"}
         )
         activities = []
+        fetched_activity_list = False
+        cache_hit = False
         if (
             cache.is_file()
             and time.time() - cache.stat().st_mtime < ACTIVITY_CACHE_SECONDS
@@ -73,10 +75,12 @@ def fetch_activities(directory: Path, count: int) -> None:
                 cached = json.loads(cache.read_text())
                 if isinstance(cached, list) and len(cached) >= count:
                     activities = cached[:count]
+                    cache_hit = True
             except (OSError, json.JSONDecodeError):
                 pass
         seen = set()
-        while not activities and len(activities) < count:
+        while not cache_hit and len(activities) < count:
+            fetched_activity_list = True
             limit = min(PAGE_SIZE, count - len(activities))
             page = fetch_response(
                 "GET",
@@ -105,7 +109,7 @@ def fetch_activities(directory: Path, count: int) -> None:
                 activities.append(activity)
             if len(page) < limit:
                 break
-        if activities:
+        if fetched_activity_list:
             cache.write_text(json.dumps(activities))
 
         jobs = []
