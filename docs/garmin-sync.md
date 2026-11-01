@@ -1,138 +1,130 @@
-# GarminDB sync
+# Garmin Personal API sync
 
-## Docker Compose
+Sync downloads activities directly from the official [Garmin Connect Personal
+API Swagger](https://developer.garmin.com/gc-developer-program/personal/swagger-docs).
+GarminDB 3.9 remains the local JSON/FIT parser and database importer; it no longer
+logs in to Garmin or makes download requests. Existing PostgreSQL tables,
+SQLite history, recorded points, laps, grading, TSS and dashboard contracts are
+preserved.
 
-Compose uses the repository-root `.env`, its own PostgreSQL service, and Garmin
-files inside this project. It does not mount your host home directory.
+## Configuration and running
 
-Compose mounts `/Users/shimoda/.GarminDb/GarminConnectConfig.json` read-only at
-`/app/GarminConnectConfig.json`. Change the bind source in `compose.yaml` if your
-configuration lives elsewhere. The source file must exist, with your
-Garmin username in `credentials.user` and SQLite as the database type. Set
-`SECRET_GARMIN` in `.env` to your Garmin password. Each sync generates
-`/root/.GarminDb/GarminConnectConfig.json` from that file, injecting
-the password and project data path. The generated file has mode `0600`;
-The source configuration and `.env` must stay out of Git. Existing password-file and
-secure-password settings are replaced by the `.env` password. Existing session
-files are managed by GarminDB inside the backend container.
+Set `GARMIN_CONNECT` in the repository-root `.env` to your **Personal API key**,
+not a bearer token. Create the key in Garmin Connect Web. Garmin username,
+password, `SECRET_GARMIN`, and the old host config bind mount are no longer needed.
+Keep `.env` and downloaded personal data out of Git.
 
-Place any existing downloaded Garmin data and SQLite databases in
-`workspace/garmin/HealthData/` (the activities database belongs at
-`HealthData/DBs/garmin_activities.db`). If starting fresh, GarminDB downloads data
-using the start dates in your configuration. These directories are ignored by Git.
+Compose supplies `GARMINDB_PATH` inside `workspace/garmin/HealthData/DBs/`.
+Existing files can be reused under `workspace/garmin/HealthData/`, including
+`FitFiles/Activities/` and `DBs/garmin_activities.db`.
 
 ```bash
-docker compose up -d
+docker compose up -d --build
+
 docker compose exec -w /app backend make garmin-sync
 ```
 
-Compose supplies the container database path and mounts the project Garmin
-configuration at `/app/GarminConnectConfig.json`. It disables the optional bootstrap path;
-reuse existing data by placing it in the project directory above. Subsequent
-refreshes use the same command or the dashboard's **Get new data** button.
-Before starting the API, Compose runs `scripts/initialize_postgres.py` to create
-all tables from schema-only SQL snapshots. Startup never waits for a Garmin
-download or import. Activity lists are empty until the first sync completes.
-Run the explicit sync command above, or use **Get new data**, to populate or
-refresh data after startup. See [PostgreSQL schema](postgres-schema.md).
+The dashboard's **Get new data** button calls the same command through protected
+`POST /activities/sync`. Startup applies schema snapshots only and does not sync.
+The protected progress endpoint remains `GET /activities/sync/status`.
 
-### Download progress
+Outside Docker, set `GARMINDB_PATH` to an absolute path ending in
+`HealthData/DBs/garmin_activities.db`, configure PostgreSQL variables from
+`.env.example`, and run `make garmin-sync`. The command loads root `.env`.
+`DB_NAME_GARMIN` must differ from `DB_NAME`. An optional
+`GARMINDB_BOOTSTRAP_PATH` copies an existing valid activities SQLite database;
+existing databases and history are not replaced.
 
-**Get new data** shows a live file counter and remaining files on Activities and
-Grades. While Garmin is logging in and listing activities, it shows “Checking
-Garmin for new data”; the total is unknown until that list arrives. The counter
-includes missing activity summary JSON, detail JSON and downloaded ZIP archives
-for this sync's configured activity window. Existing files that GarminDB skips
-are excluded. A ZIP counts as one transfer, regardless of extracted FIT files.
-This is a file count, not a byte count or a count of all history on Garmin.
+An existing `~/.GarminDb/GarminConnectConfig.json`, or an explicitly selected
+`GARMINDB_CONFIG`, may supply import settings and activity-window counts. It is
+not required. Sync writes a private import-only configuration under
+`HealthData/DBs/config/`, removes Garmin credentials from that generated copy,
+and leaves the source config untouched. New databases import in metric units;
+stored measurement-system attributes in existing databases are respected.
 
-After transfers and extraction finish, the display changes to importing.
-The final activity count appears after the PostgreSQL import and TSS update.
-Failed transfers do not advance the counter. Failed progress requests display
-an unavailable message while the sync request continues.
+## Download contract
 
-The protected `GET /activities/sync/status` endpoint returns `phase`,
-`downloaded_files`, and nullable `total_files`; both pages query immediately, then every 30 seconds
-while authenticated, including on page entry. An active sync is restored after
-a refresh or navigation, and disables duplicate sync requests. When a restored
-sync changes from active to complete, the page reloads its activity data and
-dashboard totals once. Repeated complete responses do not reload data; syncs
-started on the page continue to refresh through their POST completion path.
-The existing POST response is unchanged.
-Progress and the sync lock belong to the single API process used by Compose;
-multiple API workers would require shared job state. The downloader instrumentation
-targets the pinned GarminDB 3.9 implementation and must be reviewed on upgrades.
+`src/weather_score/garmin.py` uses these official endpoints:
 
-## Running without Docker
+- `POST /personalapitoken-service/personal-api/personal-api-key/token` with
+  `Authorization: ApiKey ...` and `Accept: */*`. The response is a plain-text
+  bearer token, retained only in memory for this sync.
+- `GET /activitylist-service/activities/search/activities` with `start` and
+  `limit`, in pages of at most 99 activities.
+- `GET /activity-service/activity/{activityId}` for detail JSON.
+- `GET /download-service/files/activity/{activityId}` for the original ZIP.
 
-The project keeps Garmin credentials and session files in GarminDB's standard
-`~/.GarminDb` directory. Install no separate GarminDB checkout or duplicate
-configuration.
+GET requests use `Authorization: Bearer ...`. Token exchange is performed once
+per sync; HTTP failures, including expiry, throttling and upstream errors, fail
+the sync rather than silently skipping activities. Each request has a 30-second
+timeout, redirects are rejected, and the API retains its 10-minute sync timeout.
+An expired or revoked Personal API key must be replaced in `.env`.
 
-The Docker backend mounts
-`/Users/shimoda/.GarminDb/GarminConnectConfig.json` read-only at
-`/app/GarminConnectConfig.json`, which the sync command uses in the
-container. The source file must already exist. After changing the mount, apply
-it with `docker compose up -d --no-deps backend`. This mounts only the config;
-the configured activity-data paths must also be accessible inside Docker.
+A fresh SQLite database downloads up to 1,000 activities by default. Later runs
+check the latest 25. Existing config values `data.download_all_activities` and
+`data.download_latest_activities` override those bounds. Increase the latter if
+you have more than 25 new activities or need older missing files repaired.
+This preserves the existing bounded sync window; it is not an unlimited history
+backfill. Existing summary, detail and FIT files are reused independently, so a
+partial download is repaired on the next sync within that window.
 
-In `~/.GarminDb/GarminConnectConfig.json`, use SQLite and set the data directory.
-For example, this stores data below `/Users/me/dbs/garmindb/HealthData`:
+The original archive must contain one FIT file, at most 128 MiB uncompressed.
+Only its contents are written to `{activityId}.fit`; archive paths are never
+extracted. JSON and FIT files are written using temporary files and atomic
+replacement. Invalid responses and archives fail before a completed file is
+marked downloaded. Non-FIT activities cannot currently be imported through this
+path and cause an explicit sync failure.
 
-```json
-{
-  "db": {"type": "sqlite"},
-  "directories": {"relative_to_home": false, "base_dir": "HealthData"}
-}
-```
+## Progress and import
 
-Run the command from `/Users/me/dbs/garmindb`, or let the project command do so
-by setting the matching database path:
+While listing activities, the UI shows “Checking Garmin for new data”. The total
+then counts missing summary JSON, detail JSON and FIT files in the configured
+window; existing files are excluded. Each successfully saved file advances the
+counter. A ZIP's FIT payload counts as one file. Summary JSON comes from the
+list response, so this is a saved-file count, not an HTTP-request or byte count.
+
+After downloads finish, progress changes to importing. The existing GarminDB
+parser imports SQLite and PostgreSQL, then copies names and recalculates TSS.
+It does not make provider requests. The first PostgreSQL import processes all
+local files; later imports use GarminDB's existing latest-file selection.
+`import_garmindb.py` normalizes JSON identifiers to text for PostgreSQL and uses
+metric units for fresh databases lacking a settings FIT file.
+
+Progress and the sync lock remain in the single API process. Both dashboard
+pages poll on entry, every 30 seconds while idle and every two seconds during a
+sync. Failed downloads stop before import; completed files remain available for
+retry. Import failures can leave SQLite or an earlier importer transaction
+updated, as before; retrying reuses local files and idempotent imports. The TSS
+backfill has its own transaction.
+
+Tests: `tests/test_download_garmin.py`, `tests/test_sync_garmindb.py`,
+`tests/test_import_garmindb.py`, and `tests/api/test_garmin.py`. Unit tests never
+call Garmin; the provider boundaries are mocked.
+
+## Local API simulation
+
+The minimal caller contract is `postman/contracts/garmin-personal.openapi.json`.
+It contains the used subset of the Swagger and the separately documented token
+exchange. The stand-in contains synthetic data only. Start it from the repo root:
 
 ```bash
-export GARMINDB_PATH=/Users/me/dbs/garmindb/HealthData/DBs/garmin_activities.db
-export DB_NAME_GARMIN=garmin
+postman simulation run postman/simulations/garmin-personal.sim.yaml --port 4511 --no-history
 ```
 
-The command also loads these values from a repository-root `.env` file when it
-exists.
-
-For the initial bootstrap, point at an existing valid activities database. The
-command copies that database so its activity history is reused:
+Then, from `apps/api`, run:
 
 ```bash
-GARMINDB_BOOTSTRAP_PATH=/Users/me/old/HealthData/DBs/garmin_activities.db make garmin-sync
+GARMIN_SIMULATION_URL=http://localhost:4511/garmin uv run --extra garmin pytest ../../tests/test_download_garmin.py
 ```
 
-If no existing databases are available, omit `GARMINDB_BOOTSTRAP_PATH`; the first
-run starts from the dates in the GarminDB config. Every later refresh is the same
-command:
+The optional simulation check exercises real HTTP calls, file reuse, invalid
+credentials and throttling. It is skipped when the simulation URL is absent.
+The synthetic ZIP checks archive handling, not FIT parsing or database import.
+The context file beside the simulation records the live and mocked evidence.
 
-```bash
-make garmin-sync
-```
+## Stored TSS
 
-Before downloading, the command creates `DB_NAME_GARMIN` if missing and
-initializes all GarminDB health, activity, monitoring, and summary tables,
-including the activity `tss` column. Initialization preserves existing data;
-if it fails, the download does not start. PostgreSQL itself must already be running.
-
-The command downloads activities only, keeps the local SQLite database, and
-imports every locally downloaded Garmin data type into `DB_NAME_GARMIN` on the
-same PostgreSQL server as `DB_NAME`. GarminDB creates separate `garmin`,
-`garmin_activities`, and `garmin_monitoring` schemas. The first PostgreSQL import
-processes all local files; later runs import only files from the latest overlap.
-After import, the command copies activity names from SQLite into PostgreSQL to
-work around GarminDB 3.9 passing numeric JSON IDs to its text primary key.
-
-PostgreSQL imports run through `scripts/import_garmindb.py`, which normalizes
-JSON activity IDs to strings before GarminDB looks up or updates activity rows.
-This avoids PostgreSQL's `character varying = bigint` error without casting
-indexed database columns or rewriting downloaded files. The compatibility fix
-targets GarminDB 3.9's shared JSON activity processor; review it when upgrading
-GarminDB. FIT import and the SQLite sync keep their original behavior.
-
-Immediately after the name update, the same sync creates the nullable
+After the name update, the same sync creates the nullable
 `garmin_activities.activities.tss` column if needed and recalculates **all**
 activities, including older activities and those without names. It reuses the
 [heart-rate TSS estimate](training-stress.md) with the threshold saved in

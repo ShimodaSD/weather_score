@@ -1,0 +1,9 @@
+version: 1
+name: garmin-personal
+slug: garmin-personal
+protocol: http
+port: 4500
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

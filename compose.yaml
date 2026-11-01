@@ -28,7 +28,6 @@ services:
       DB_PORT: "5432"
       DB_USER: postgres
       GARMINDB_PATH: /app/workspace/garmin/HealthData/DBs/garmin_activities.db
-      GARMINDB_CONFIG: /app/GarminConnectConfig.json
       GARMINDB_BOOTSTRAP_PATH: ""
       UV_LINK_MODE: copy
       PYTHONUNBUFFERED: "1"
@@ -39,12 +38,6 @@ services:
       - "8002:8002"
     volumes:
       - .:/app
-      - type: bind
-        source: /Users/shimoda/.GarminDb/GarminConnectConfig.json
-        target: /app/GarminConnectConfig.json
-        read_only: true
-        bind:
-          create_host_path: false
 
   postgres:
     image: postgres:17-bookworm

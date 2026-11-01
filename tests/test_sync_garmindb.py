@@ -1,7 +1,5 @@
 import json
-import os
 import sqlite3
-import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -13,60 +11,38 @@ from scripts import sync_garmindb
 SCRIPT = Path(__file__).parents[1] / "scripts" / "sync_garmindb.py"
 
 
-def test_generates_private_config_from_environment(tmp_path, monkeypatch):
+@pytest.fixture(autouse=True)
+def configure_personal_api(monkeypatch):
+    monkeypatch.setenv("GARMIN_CONNECT", "test-key")
+
+
+def test_generates_import_config_without_credentials(tmp_path, monkeypatch):
     source = tmp_path / "GarminConnectConfig.json"
     template = {
         "db": {"type": "sqlite"},
-        "credentials": {"user": "runner", "password_file": "/outside/password"},
-        "directories": {"base_dir": "/outside/data"},
+        "credentials": {"user": "runner", "password": "private"},
+        "settings": {"metric": False},
     }
     source.write_text(json.dumps(template))
-    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
     monkeypatch.setenv("GARMINDB_CONFIG", str(source))
-    monkeypatch.delenv("SECRET_GARMIN", raising=False)
-    target = tmp_path / "HealthData" / "DBs" / "garmin_activities.db"
-    with pytest.raises(SystemExit, match="set SECRET_GARMIN"):
-        sync_garmindb._get_garmin_config(target)
-    monkeypatch.setenv("SECRET_GARMIN", "test-password")
+    target = tmp_path / "HealthData/DBs/garmin_activities.db"
     directory, config = sync_garmindb._get_garmin_config(target)
-    generated = tmp_path / "home/.GarminDb/GarminConnectConfig.json"
+    generated = target.parent / "config/GarminConnectConfig.json"
     assert directory == target.parent.parent
+    assert "credentials" not in config
+    assert config["settings"] == {"metric": False}
     assert json.loads(generated.read_text()) == config
-    assert config["credentials"] == {
-        "user": "runner", "password": "test-password",
-        "password_file": None, "secure_password": False,
-    }
     assert generated.stat().st_mode & 0o777 == 0o600
     assert json.loads(source.read_text()) == template
 
 
-def test_uses_password_from_private_config_when_environment_secret_is_unset(
-    tmp_path, monkeypatch
-):
-    source = tmp_path / "GarminConnectConfig.json"
-    source.write_text(
-        json.dumps(
-            {
-                "db": {"type": "sqlite"},
-                "credentials": {"user": "runner", "password": "private"},
-                "directories": {"base_dir": "/outside/data"},
-            }
-        )
-    )
+def test_import_config_needs_no_existing_config(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
-    monkeypatch.setenv("GARMINDB_CONFIG", str(source))
-    monkeypatch.delenv("SECRET_GARMIN", raising=False)
-
-    _, config = sync_garmindb._get_garmin_config(
-        tmp_path / "HealthData" / "DBs" / "garmin_activities.db"
-    )
-
-    assert config["credentials"] == {
-        "user": "runner",
-        "password": "private",
-        "password_file": None,
-        "secure_password": False,
-    }
+    monkeypatch.delenv("GARMINDB_CONFIG", raising=False)
+    target = tmp_path / "HealthData/DBs/garmin_activities.db"
+    directory, config = sync_garmindb._get_garmin_config(target)
+    assert directory == target.parent.parent
+    assert config["settings"]["metric"] is True
 
 
 def _create_database(path: Path, activities: bool = False) -> None:
@@ -76,87 +52,59 @@ def _create_database(path: Path, activities: bool = False) -> None:
             database.execute("CREATE TABLE activities (id INTEGER PRIMARY KEY)")
 
 
-def _create_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
-    home = tmp_path / "home"
-    destination = tmp_path / "destination"
-    target = destination / "HealthData" / "DBs" / "garmin_activities.db"
-    config_dir = home / ".GarminDb"
-    config_dir.mkdir(parents=True)
-    (config_dir / "GarminConnectConfig.json").write_text(
-        json.dumps(
-            {
-                "db": {"type": "sqlite"},
-                "directories": {"relative_to_home": False, "base_dir": "HealthData"},
-            }
-        )
-    )
-
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    fake_cli = bin_dir / "garmindb_cli.py"
-    fake_cli.write_text(
-        "import os, sys\nfrom pathlib import Path\n"
-        'Path(os.environ["GARMIN_TEST_CWD"]).write_text(os.getcwd())\n'
-        'Path(os.environ["GARMIN_TEST_ARGS"]).write_text(" ".join(sys.argv[1:]))\n'
-    )
-    (bin_dir / "garmindb.py").write_text(
-        "class Download:\n"
-        "    get_activities = _Download__get_activity_summaries = lambda *args: None\n"
-        "    save_json_to_file = save_binary_file = lambda *args: None\n"
-    )
-    fake_cli.chmod(0o755)
-    environment = os.environ | {
-        "HOME": str(home),
-        "PYTHONPATH": str(bin_dir),
-        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
-        "GARMINDB_PATH": str(target),
-        "GARMIN_TEST_CWD": str(tmp_path / "cwd"),
-        "GARMIN_TEST_ARGS": str(tmp_path / "args"),
-    }
-    environment.pop("DB_NAME_GARMIN", None)
-    environment.pop("GARMINDB_CONFIG", None)
-    return environment, target, destination
-
-
-def test_bootstraps_and_runs_incremental_refresh(tmp_path: Path) -> None:
-    environment, target, destination = _create_environment(tmp_path)
-    source = tmp_path / "existing" / "garmin_activities.db"
+def test_bootstraps_existing_sqlite_history(tmp_path):
+    source = tmp_path / "existing/garmin_activities.db"
+    target = tmp_path / "new/garmin_activities.db"
     _create_database(source, activities=True)
-    environment["GARMINDB_BOOTSTRAP_PATH"] = str(source)
+    sync_garmindb._bootstrap_database(target, source)
+    assert sync_garmindb._validate_database(target, "activities")
 
-    result = subprocess.run(
-        [sys.executable, SCRIPT],
-        env=environment,
-        text=True,
-        capture_output=True,
-        check=False,
+
+def test_sqlite_uses_api_download_then_import_only(tmp_path, monkeypatch):
+    import garmindb
+    import weather_score.garmin as personal_api
+
+    target = tmp_path / "HealthData/DBs/garmin_activities.db"
+    monkeypatch.setenv("GARMINDB_PATH", str(target))
+    config = MagicMock()
+    config.config = {}
+    config.get_activities_dir.return_value = str(tmp_path / "activities")
+    monkeypatch.setattr(garmindb, "GarminConnectConfigManager", lambda _: config)
+    download = MagicMock()
+    monkeypatch.setattr(personal_api, "fetch_activities", download)
+    run = MagicMock()
+    monkeypatch.setattr(sync_garmindb, "_run_garmindb", run)
+    sync_garmindb._sync_sqlite(tmp_path)
+    download.assert_called_once_with(tmp_path / "activities", 1000)
+    run.assert_called_once_with(
+        tmp_path,
+        [
+            "--config",
+            str(target.parent / "config"),
+            "--activities",
+            "--import",
+            "--latest",
+        ],
     )
-
-    assert result.returncode == 0, result.stderr
-    assert target.is_file()
-    assert (tmp_path / "cwd").read_text().strip() == str(destination)
-    assert (tmp_path / "args").read_text().strip() == (
-        "--activities --download --import --latest"
-    )
-
-
-def test_returns_failure_when_upstream_hides_login_error(tmp_path: Path) -> None:
-    environment, target, _ = _create_environment(tmp_path)
     _create_database(target, activities=True)
-    fake_cli = Path(environment["PATH"].split(os.pathsep)[0]) / "garmindb_cli.py"
-    fake_cli.write_text("print('Failed to login!')\n")
-    fake_cli.chmod(0o755)
+    sync_garmindb._sync_sqlite(tmp_path)
+    assert download.call_args.args[1] == 25
 
-    result = subprocess.run(
-        [sys.executable, SCRIPT],
-        env=environment,
-        text=True,
-        capture_output=True,
-        check=False,
+
+def test_api_failure_prevents_import(tmp_path, monkeypatch):
+    import weather_score.garmin as personal_api
+
+    target = tmp_path / "HealthData/DBs/garmin_activities.db"
+    monkeypatch.setenv("GARMINDB_PATH", str(target))
+    sync_garmindb._get_garmin_config(target)
+    monkeypatch.setattr(
+        personal_api, "fetch_activities", MagicMock(side_effect=ValueError("HTTP 401"))
     )
-
-    assert result.returncode != 0
-    assert "GarminDB operation failed" in result.stderr
+    run = MagicMock()
+    monkeypatch.setattr(sync_garmindb, "_run_garmindb", run)
+    with pytest.raises(SystemExit, match="HTTP 401"):
+        sync_garmindb._sync_sqlite(tmp_path)
+    run.assert_not_called()
 
 
 def test_postgres_reuses_weather_connection_settings(monkeypatch) -> None:
@@ -211,13 +159,10 @@ def test_startup_sync_skips_import_when_initialized(monkeypatch) -> None:
     load_config.assert_not_called()
 
 
-def test_startup_sync_fails_when_garmin_config_is_missing(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--if-needed"])
-    monkeypatch.setenv("DB_NAME_GARMIN", "garmin")
-    monkeypatch.setenv("GARMINDB_CONFIG", str(tmp_path / "missing.json"))
-    monkeypatch.setattr(sync_garmindb, "_postgres_sync_needed", lambda _: True)
-
-    with pytest.raises(SystemExit, match="startup import requires GarminDB config"):
+def test_sync_requires_personal_api_key(monkeypatch):
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT)])
+    monkeypatch.delenv("GARMIN_CONNECT")
+    with pytest.raises(SystemExit, match="GARMIN_CONNECT"):
         sync_garmindb.main()
 
 
@@ -283,7 +228,11 @@ def test_backfills_all_activity_tss_with_saved_threshold(monkeypatch) -> None:
 
 @pytest.mark.parametrize(
     ("table", "profile", "expected"),
-    [(None, None, 157), ("athlete_profile", None, 157), ("athlete_profile", (165,), 165)],
+    [
+        (None, None, 157),
+        ("athlete_profile", None, 157),
+        ("athlete_profile", (165,), 165),
+    ],
 )
 def test_reads_tss_profile_threshold(monkeypatch, table, profile, expected) -> None:
     connection = MagicMock()
@@ -306,7 +255,9 @@ def test_tss_database_failure_fails_sync(monkeypatch) -> None:
 
 @pytest.mark.parametrize("startup", [False, True])
 def test_sync_updates_tss_after_activity_names(tmp_path, monkeypatch, startup) -> None:
-    monkeypatch.setattr(sys, "argv", [str(SCRIPT), *(["--if-needed"] if startup else [])])
+    monkeypatch.setattr(
+        sys, "argv", [str(SCRIPT), *(["--if-needed"] if startup else [])]
+    )
     config = tmp_path / "GarminConnectConfig.json"
     config.write_text("{}")
     monkeypatch.setenv("GARMINDB_CONFIG", str(config))
@@ -330,7 +281,11 @@ def test_sync_updates_tss_after_activity_names(tmp_path, monkeypatch, startup) -
 
     sync_garmindb.main()
     assert [call[0] for call in updates.mock_calls] == [
-        "prepare", "download", "import_data", "names", "tss"
+        "prepare",
+        "download",
+        "import_data",
+        "names",
+        "tss",
     ]
     updates.download.assert_called_once_with(tmp_path.parent)
     updates.import_data.assert_called_once_with({}, tmp_path.parent, "garmin", True)
@@ -341,13 +296,21 @@ def test_initializes_all_postgres_tables(monkeypatch) -> None:
     import garmindb.summarydb as summaries
 
     monkeypatch.setattr(
-        sync_garmindb, "_get_postgres_parameters",
-        lambda _: {"user": "user", "password": "test", "host": "localhost", "port": "5432"},
+        sync_garmindb,
+        "_get_postgres_parameters",
+        lambda _: {
+            "user": "user",
+            "password": "test",
+            "host": "localhost",
+            "port": "5432",
+        },
     )
     constructors = []
     for module, name in [
-        (databases, "GarminDb"), (databases, "ActivitiesDb"),
-        (databases, "MonitoringDb"), (databases, "GarminSummaryDb"),
+        (databases, "GarminDb"),
+        (databases, "ActivitiesDb"),
+        (databases, "MonitoringDb"),
+        (databases, "GarminSummaryDb"),
         (summaries, "SummaryDb"),
     ]:
         constructor = MagicMock()
@@ -361,8 +324,9 @@ def test_initializes_all_postgres_tables(monkeypatch) -> None:
     for constructor in constructors:
         assert constructor.call_args.args[0].pg_database == "garmin"
         constructor.return_value.engine.dispose.assert_called_once()
-    assert "ADD COLUMN IF NOT EXISTS tss" in (
-        connection.return_value.__enter__.return_value.execute.call_args.args[0]
+    assert (
+        "ADD COLUMN IF NOT EXISTS tss"
+        in (connection.return_value.__enter__.return_value.execute.call_args.args[0])
     )
 
 
@@ -373,7 +337,8 @@ def test_postgres_initialization_failure_prevents_download(tmp_path, monkeypatch
     monkeypatch.setattr(sync_garmindb, "_get_garmin_config", lambda _: (tmp_path, {}))
     monkeypatch.setattr(sync_garmindb, "_bootstrap_database", MagicMock())
     monkeypatch.setattr(
-        sync_garmindb, "_prepare_postgres_database",
+        sync_garmindb,
+        "_prepare_postgres_database",
         MagicMock(side_effect=SystemExit("initialization failed")),
     )
     download = MagicMock()
@@ -383,3 +348,14 @@ def test_postgres_initialization_failure_prevents_download(tmp_path, monkeypatch
         sync_garmindb.main()
 
     download.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "config", [{"db": None}, {"db": {"type": "postgresql"}}, {"data": None}]
+)
+def test_invalid_import_config_fails_cleanly(tmp_path, monkeypatch, config):
+    source = tmp_path / "source.json"
+    source.write_text(json.dumps(config))
+    monkeypatch.setenv("GARMINDB_CONFIG", str(source))
+    with pytest.raises(SystemExit, match="import config"):
+        sync_garmindb._get_garmin_config(tmp_path / "DBs/garmin_activities.db")

@@ -1,4 +1,4 @@
-"""Bootstrap and incrementally refresh the configured GarminDB databases."""
+"""Download Garmin Personal API activities and import the existing databases."""
 
 import json
 import os
@@ -41,53 +41,38 @@ def _validate_database(path: Path, required_table: str | None = None) -> bool:
 
 
 def _get_garmin_config(target: Path) -> tuple[Path, dict[str, object]]:
-    config_path = Path.home() / ".GarminDb" / "GarminConnectConfig.json"
-    source_path = Path(os.environ.get("GARMINDB_CONFIG", str(config_path)))
+    config_path = target.parent / "config" / "GarminConnectConfig.json"
+    default_source = Path.home() / ".GarminDb" / "GarminConnectConfig.json"
+    source_path = Path(os.environ.get("GARMINDB_CONFIG", str(default_source)))
+    if os.environ.get("GARMINDB_CONFIG") and not source_path.is_file():
+        _fail_sync(f"cannot read GarminDB import config at {source_path}")
     try:
-        config = json.loads(source_path.read_text())
+        config = json.loads(source_path.read_text()) if source_path.is_file() else {}
     except (OSError, json.JSONDecodeError) as error:
-        _fail_sync(f"cannot read GarminDB config at {source_path}: {error}")
-
+        _fail_sync(f"cannot read GarminDB import config at {source_path}: {error}")
     if (
         not isinstance(config, dict)
+        or not isinstance(config.get("db", {}), dict)
         or config.get("db", {}).get("type", "sqlite") != "sqlite"
     ):
-        _fail_sync("GarminDB config must use SQLite")
+        _fail_sync("GarminDB import config must use SQLite")
+    if not isinstance(config.get("data", {}), dict):
+        _fail_sync("GarminDB import config data must be an object")
+    config.pop("credentials", None)
+    config["db"] = {"type": "sqlite"}
+    config["directories"] = {
+        "relative_to_home": False,
+        "base_dir": str(target.parent.parent),
+    }
+    config.setdefault("settings", {"metric": True})
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(
+        config_path, "w", opener=lambda path, flags: os.open(path, flags, 0o600)
+    ) as output:
+        config_path.chmod(0o600)
+        json.dump(config, output, indent=2)
 
-    if os.environ.get("GARMINDB_CONFIG"):
-        credentials = config.get("credentials")
-        if not isinstance(credentials, dict) or not credentials.get("user"):
-            _fail_sync("set credentials.user in GarminConnectConfig.json")
-        password = os.environ.get("SECRET_GARMIN") or credentials.get("password")
-        if not password:
-            _fail_sync("set SECRET_GARMIN in .env")
-        credentials.update(
-            password=password, secure_password=False, password_file=None
-        )
-        config["directories"] = {
-            "relative_to_home": False,
-            "base_dir": str(target.parent.parent),
-        }
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(
-            config_path, "w", opener=lambda path, flags: os.open(path, flags, 0o600)
-        ) as output:
-            config_path.chmod(0o600)
-            json.dump(config, output, indent=2)
-
-    directories = config.get("directories", {})
-    configured = Path(directories.get("base_dir", "HealthData")).expanduser()
-    if not configured.is_absolute():
-        configured = (
-            Path.home() / configured
-            if directories.get("relative_to_home", True)
-            else target.parent.parent.parent / configured
-        )
-    if configured.resolve() != target.parent.parent.resolve():
-        _fail_sync(
-            "GARMINDB_PATH does not match directories.base_dir in GarminDB config"
-        )
-    return configured, config
+    return target.parent.parent, config
 
 
 def _bootstrap_database(target: Path, source: Path | None) -> None:
@@ -111,13 +96,12 @@ def _bootstrap_database(target: Path, source: Path | None) -> None:
 def _run_garmindb(
     working_directory: Path,
     arguments: list[str],
-    normalize_activity_ids: bool = False,
 ) -> None:
-    command = (
-        [sys.executable, "-u", str(Path(__file__).with_name("import_garmindb.py"))]
-        if normalize_activity_ids
-        else [sys.executable, "-u", str(Path(__file__).with_name("download_garmindb.py"))]
-    ) + arguments
+    command = [
+        sys.executable,
+        "-u",
+        str(Path(__file__).with_name("import_garmindb.py")),
+    ] + arguments
     markers = (
         "failed to login",
         "failed to download",
@@ -215,7 +199,11 @@ def _initialize_postgres_tables(database_name: str) -> None:
     )
     try:
         for database_type in (
-            GarminDb, ActivitiesDb, MonitoringDb, GarminSummaryDb, SummaryDb,
+            GarminDb,
+            ActivitiesDb,
+            MonitoringDb,
+            GarminSummaryDb,
+            SummaryDb,
         ):
             database = database_type(db_params)
             database.engine.dispose()
@@ -224,7 +212,7 @@ def _initialize_postgres_tables(database_name: str) -> None:
                 "ALTER TABLE garmin_activities.activities "
                 "ADD COLUMN IF NOT EXISTS tss double precision"
             )
-    except (psycopg.Error, SQLAlchemyError, RuntimeError):
+    except psycopg.Error, SQLAlchemyError, RuntimeError:
         _fail_sync("cannot initialize Garmin PostgreSQL tables")
 
 
@@ -250,7 +238,9 @@ def _postgres_sync_needed(database_name: str) -> bool:
 
 
 def _import_postgres(
-    config: dict[str, object], working_directory: Path, database_name: str,
+    config: dict[str, object],
+    working_directory: Path,
+    database_name: str,
     full_import: bool,
 ) -> None:
     postgres_config = deepcopy(config)
@@ -274,7 +264,7 @@ def _import_postgres(
             "--import",
             *([] if full_import else ["--latest"]),
         ]
-        _run_garmindb(working_directory, arguments, normalize_activity_ids=True)
+        _run_garmindb(working_directory, arguments)
 
     try:
         with psycopg.connect(**_get_postgres_parameters(database_name)) as connection:
@@ -304,7 +294,7 @@ def _sync_postgres_activity_names(target: Path, database_name: str) -> int:
                 "WHERE activity_id = %s AND name IS DISTINCT FROM %s",
                 [(name, activity_id, name) for activity_id, name in names],
             )
-    except (sqlite3.Error, psycopg.Error):
+    except sqlite3.Error, psycopg.Error:
         _fail_sync("cannot copy activity names to Garmin PostgreSQL")
     return len(names)
 
@@ -354,7 +344,7 @@ def _sync_postgres_activity_tss(database_name: str) -> tuple[int, int]:
                         elapsed_seconds=elapsed_seconds,
                     )["tss"]
                     scored += 1
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     tss = None
                 updates.append((tss, activity_id, tss))
             cursor.executemany(
@@ -368,14 +358,29 @@ def _sync_postgres_activity_tss(database_name: str) -> tuple[int, int]:
 
 
 def _sync_sqlite(working_directory: Path) -> None:
+    """Fetch Personal API files, then run the local GarminDB parser only."""
+    from zipfile import BadZipFile
+
+    import requests
+    from garmindb import GarminConnectConfigManager
+    from weather_score.garmin import fetch_activities
+
+    target = Path(os.environ["GARMINDB_PATH"]).expanduser()
+    config_directory = target.parent / "config"
+    config = GarminConnectConfigManager(str(config_directory))
+    counts = config.config.get("data", {})
+    count = (
+        counts.get("download_latest_activities", 25)
+        if target.is_file()
+        else counts.get("download_all_activities", 1000)
+    )
+    try:
+        fetch_activities(Path(config.get_activities_dir()), count)
+    except (requests.RequestException, ValueError, OSError, BadZipFile) as error:
+        _fail_sync(f"Personal API download failed: {error}")
     _run_garmindb(
         working_directory,
-        [
-            "--activities",
-            "--download",
-            "--import",
-            "--latest",
-        ],
+        ["--config", str(config_directory), "--activities", "--import", "--latest"],
     )
 
 
@@ -388,15 +393,9 @@ def main() -> None:
         if not _postgres_sync_needed(database_name):
             print("garmin-sync: PostgreSQL is initialized; skipping startup import")
             return
-        config_path = Path(
-            os.environ.get(
-                "GARMINDB_CONFIG",
-                Path.home() / ".GarminDb" / "GarminConnectConfig.json",
-            )
-        )
-        if not config_path.is_file():
-            _fail_sync(f"startup import requires GarminDB config: {config_path}")
         print("garmin-sync: initializing GarminDB before API startup", flush=True)
+    if not os.environ.get("GARMIN_CONNECT", "").strip():
+        _fail_sync("set GARMIN_CONNECT to a Garmin Personal API key")
     configured_target = os.environ.get("GARMINDB_PATH")
     if not configured_target:
         _fail_sync("set GARMINDB_PATH to garmin_activities.db")
@@ -421,7 +420,9 @@ def main() -> None:
         names = _sync_postgres_activity_names(target, postgres_database)
         print(f"garmin-sync: copied {names} activity names to PostgreSQL")
         scored, excluded = _sync_postgres_activity_tss(postgres_database)
-        print(f"garmin-sync: calculated TSS for {scored} activities; {excluded} unavailable")
+        print(
+            f"garmin-sync: calculated TSS for {scored} activities; {excluded} unavailable"
+        )
     print(f"garmin-sync: ready: {target}")
 
 

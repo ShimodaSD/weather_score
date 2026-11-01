@@ -27,3 +27,17 @@ def test_import_preserves_upstream_errors():
     with pytest.raises(ValueError, match="invalid activity"):
         import_activity_json(processor, {"activityId": 21808646880})
     processor.garmin_act_db.managed_session.return_value.__exit__.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "stored,expected", [("metric", "metric"), ("statute", "statute")]
+)
+def test_import_keeps_stored_units_and_defaults_to_metric(stored, expected):
+    from scripts.import_garmindb import get_measurement_system
+
+    attributes = MagicMock()
+    attributes.get_string.return_value = stored
+    assert get_measurement_system(attributes, "database").name == expected
+    attributes.get_string.assert_called_once_with(
+        "database", "measurement_system", "metric"
+    )

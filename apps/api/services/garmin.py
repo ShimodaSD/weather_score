@@ -64,7 +64,7 @@ def _postgres_row(activity: sqlite3.Row) -> tuple[str, Jsonb]:
 
 
 async def run_garmindb_sync() -> None:
-    """Run the repository's incremental GarminDB download and import command."""
+    """Run the Personal API download and local GarminDB import command."""
     if _garmindb_sync_lock.locked():
         raise HTTPException(status_code=409, detail="Garmin sync is already running.")
     async with _garmindb_sync_lock:
@@ -119,7 +119,7 @@ async def run_garmindb_sync() -> None:
         if process.returncode:
             _sync_progress.phase = "failed"
             logger.error(
-                "GarminDB command failed: %s", output
+                "Garmin sync command failed: %s", output
             )
             raise HTTPException(status_code=502, detail="Garmin sync failed.")
         _sync_progress.phase = "complete"

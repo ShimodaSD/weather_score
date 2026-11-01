@@ -37,10 +37,9 @@ The unused `GET /address-to-lat-long`, `GET /score/run/by-type`, and
 running-score routes. Activity clients use `/activities/index` and
 `/activities/{id}/summary` instead of the former summary list.
 
-Set `GARMINDB_PATH` to GarminDB's `garmin_activities.db`, then upload every
-activity to PostgreSQL with `POST /garmin/sync`. The service reads and writes
-activities in bounded batches without blocking the API event loop.
-
-Run Uvicorn with `--log-level debug` to log each completed sync batch. Failures
-log the phase, batch number, and synchronized row count; API responses distinguish
-invalid GarminDB input (`422`) from unavailable PostgreSQL (`503`).
+Set `GARMIN_CONNECT` in root `.env` to a Garmin Personal API key and configure
+`GARMINDB_PATH` for local activity files. The dashboard's protected
+`POST /activities/sync` downloads from the official Personal API, then runs the
+local GarminDB JSON/FIT parser and PostgreSQL import. `make garmin-sync` runs the
+same process. No Garmin username/password login is used. See
+[Garmin sync](../../docs/garmin-sync.md) for setup, sync windows and progress.

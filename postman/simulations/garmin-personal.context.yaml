@@ -1,0 +1,37 @@
+purpose:
+  stands_in_for: Garmin Connect Personal API activity downloads
+  unblocks: Local verification of the real downloader without private Garmin data
+assumptions:
+  - id: personal-key-exchange
+    status: supported
+    claim: A Personal API key is exchanged for a plain-text bearer token.
+    reason: Garmin's official client and a live account check use this flow.
+    verification: Live exchange and activity list returned HTTP 200; the downloader also saved summary, details and FIT files for one real activity.
+    source: https://github.com/garmin/connect-personal-api-python/blob/main/src/garmin_personal_api/auth.py
+    updated_at: "2026-10-31"
+  - id: activity-download-contract
+    status: supported
+    claim: The caller can save summary JSON, detail JSON and a single FIT payload from an activity archive.
+    reason: Garmin Swagger defines list, detail and original download endpoints; one real activity imported successfully into temporary SQLite.
+    verification: Local simulation exercised all four endpoints and repeat download skipped existing files. Its synthetic FIT has only a signature and does not validate the FIT parser. The separate live smoke check imported a real activity.
+    source: https://developer.garmin.com/gc-developer-program/personal/swagger-docs
+    updated_at: "2026-10-31"
+  - id: authentication-and-throttle-failure
+    status: supported
+    claim: The downloader fails explicitly on HTTP 401 or 429 and preserves previously completed files.
+    reason: These statuses are not successful downloads and must not mark sync complete.
+    verification: The real downloader received 401 for revoked-key and 429 for rate-limited-key from the local stand-in; pytest observed errors and unchanged saved-file counts. Simulation request logs confirmed both statuses.
+    source: tests/test_download_garmin.py; postman/mocks/garmin-personal/default.js
+    updated_at: "2026-10-31"
+  - id: complete-production-sync
+    status: unknown
+    claim: A full account download and PostgreSQL import completes inside the API's ten-minute timeout.
+    reason: One real activity and isolated SQLite import do not establish the full account workload.
+    verification: No full project PostgreSQL sync was run.
+    source: scripts/sync_garmindb.py; apps/api/services/garmin.py
+    updated_at: "2026-10-31"
+fingerprints:
+  - id: initial-personal-api-migration
+    date: "2026-10-31"
+    commit: null
+    cli: postman request; postman simulation run
