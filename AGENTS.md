@@ -146,10 +146,15 @@ Both **Get new data** buttons poll protected `GET /activities/sync/status`
 on page entry, every 30 seconds while idle, and every two seconds after a sync
 is detected for live downloaded/total file counts and
 the download/import phase, including syncs already running after navigation. Progress
-comes from `scripts/download_garmindb.py` and stays in the single API process.
-Coverage is in `tests/test_download_garmindb.py`, `tests/api/test_garmin.py`,
+comes from `src/weather_score/garmin.py` and stays in the single API process.
+Coverage is in `tests/test_download_garmin.py`, `tests/api/test_garmin.py`,
 the activity API/client tests, and the browser sync check. See
 `docs/garmin-sync.md` for file-count semantics and GarminDB compatibility.
+Sync uses the official Garmin Personal API with `GARMIN_CONNECT` from root
+`.env`; GarminDB remains the local JSON/FIT importer only. No Garmin password
+or host config mount is required. Provider HTTP behavior is checked by the optional
+Postman simulation described in `docs/garmin-sync.md`; its caller contract lives
+in `postman/contracts/garmin-personal.openapi.json`.
 Activity details include a TSS calculator using protected
 `GET /activities/{id}/tss` and `src/weather_score/application/training_stress.py`.
 TSS is training load and may exceed 100; the 0–100 rule applies to weather
@@ -250,6 +255,3 @@ as well as correctness:
 - Do not claim an implementation is the fastest without benchmark evidence.
   Avoid speculative optimizations and dependencies without a demonstrated need.
 
-Codex PR review notifications use `.github/workflows/main.yml` and
-`scripts/notify_openbot.py`. Setup and webhook contract are documented in
-`docs/openbot-notifications.md`; mocked checks live in `tests/test_notify_openbot.py`.

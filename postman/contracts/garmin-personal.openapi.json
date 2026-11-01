@@ -1,0 +1,203 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Garmin Personal API sync subset",
+    "version": "1.0.0",
+    "description": "Minimal caller contract based on Garmin Personal API Swagger (2026-10-31). Token exchange is documented separately by Garmin. No private activity data."
+  },
+  "servers": [
+    {
+      "url": "https://personal.connectapi.garmin.com"
+    }
+  ],
+  "paths": {
+    "/activitylist-service/activities/search/activities": {
+      "get": {
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Zero-based offset of the first activity to return. Defaults to 0.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of activities to return. Defaults to 99.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 99
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns an array of activity summaries matching the supplied filters and pagination. Returns an empty array when no results are found for the provided query parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "activityId"
+                    ],
+                    "properties": {
+                      "activityId": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    }
+                  }
+                },
+                "example": [
+                  {
+                    "activityId": 123
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired credential"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/activity-service/activity/{activityId}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "activityId",
+            "description": "The ID of the activity to retrieve the summary",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activity summary returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "activityId"
+                  ],
+                  "properties": {
+                    "activityId": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                },
+                "example": {
+                  "activityId": 123
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired credential"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/download-service/files/activity/{activityId}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "activityId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "success",
+            "content": {
+              "application/x-zip-compressed": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired credential"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/personalapitoken-service/personal-api/personal-api-key/token": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Plain-text access token; verified against Garmin official client and live exchange",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "test-bearer-token"
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired credential"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "PersonalApiKey": []
+          }
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerToken": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerToken": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "PersonalApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "ApiKey followed by a space and the Personal API key"
+      }
+    }
+  }
+}

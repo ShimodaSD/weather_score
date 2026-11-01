@@ -300,7 +300,7 @@ async def get_garmin_sync_status() -> GarminSyncProgress:
     summary="Download new Garmin activities",
 )
 async def sync_garmin_activities() -> dict[str, int]:
-    """Run GarminDB's incremental sync and report newly imported activities."""
+    """Download from the Personal API and report newly imported activities."""
     try:
         before = {activity["activity_id"] for activity in await fetch_activity_index()}
     except UndefinedTable:
