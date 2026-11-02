@@ -1,5 +1,6 @@
 import asyncio
 import math
+from dataclasses import dataclass
 from numbers import Real
 
 
@@ -31,6 +32,25 @@ def _weather_values(weather: dict, altitude_data: dict) -> tuple[float, ...]:
 
 
 async def calculate_activity_score(weather, altitude_data) -> float:
+    return (await calculate_activity_score_breakdown(weather, altitude_data)).score
+
+
+@dataclass(frozen=True, slots=True)
+class ActivityScoreBreakdown:
+    score: float
+    temperature_c: float
+    humidity_percent: float
+    precipitation_mm: float
+    wind_gust_kph: float
+    altitude_m: float
+    temperature_penalty: float
+    wind_penalty: float
+    humidity_penalty: float
+    altitude_penalty: float
+    precipitation_penalty: float
+
+
+async def calculate_activity_score_breakdown(weather, altitude_data) -> ActivityScoreBreakdown:
     temp, humidity, precipitation, gust, altitude = _weather_values(
         weather, altitude_data
     )
@@ -49,10 +69,20 @@ async def calculate_activity_score(weather, altitude_data) -> float:
         calculate_rain_penalty(precipitation),
     )
 
-    score = 100 - (
-        temp_loss + wind_loss + humidity_loss + altitude_loss + precipitation_loss
+    score = max(0.0, min(100.0, 100 - temp_loss - wind_loss - humidity_loss - altitude_loss - precipitation_loss))
+    return ActivityScoreBreakdown(
+        score=round(score, 2),
+        temperature_c=temp,
+        humidity_percent=humidity,
+        precipitation_mm=precipitation,
+        wind_gust_kph=gust,
+        altitude_m=altitude,
+        temperature_penalty=round(temp_loss, 2),
+        wind_penalty=round(wind_loss, 2),
+        humidity_penalty=round(humidity_loss, 2),
+        altitude_penalty=round(altitude_loss, 2),
+        precipitation_penalty=round(precipitation_loss, 2),
     )
-    return round(max(0.0, min(100.0, score)), 2)
 
 
 async def calculate_temperature_penalty(temperature_c: float) -> float:

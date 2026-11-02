@@ -44,7 +44,7 @@ The Activities tab uses the same browser session to load the lightweight
 loads laps, splits, recorded samples, and devices from `GET /activities/{id}`.
 Chart.js shows weekly sport distances and combined TSS on the dashboard, and
 heart rate and pace on separate axes on the full detail page. The detail chart
-has keyboard-operable series controls and an expandable recorded-value table.
+has keyboard-operable series controls.
 When signed out, the Activities page shows its own sign-in form.
 The `#predictions` page calls `GET /activities/running/predictions` and shows
 study-modelled 5, 10, 21, and 42 km times or bounded ranges, with links to the

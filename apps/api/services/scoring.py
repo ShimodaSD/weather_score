@@ -2,14 +2,23 @@
 
 import asyncio
 import math
+from dataclasses import asdict
 from numbers import Real
 
 lazy import requests
 lazy from fastapi import HTTPException, status
-lazy from weather_score.application.main import calculate_activity_score
+lazy from weather_score.application.main import (
+    calculate_activity_score,
+    calculate_activity_score_breakdown,
+)
 lazy from weather_score.application.run_grade import RunGrade, calculate_run_grade
-lazy from weather_score.weather.providers.openmeteo import fetch_elevation
-lazy from weather_score.weather.providers.weather_api import fetch_current_weather
+lazy from weather_score.weather.providers.openmeteo import (
+    fetch_elevation,
+    fetch_weather_forecast,
+)
+lazy from weather_score.weather.providers.weather_api import (
+    fetch_current_weather,
+)
 
 try:
     from ..schemas.location import (
@@ -85,6 +94,37 @@ async def grade_run_at_address(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Could not retrieve weather data.",
         ) from error
+
+
+async def forecast_run_at_address(
+    address: str,
+    coordinates: CoordinatesResponse | None = None,
+) -> list[dict] | ErrorResponse | LocationOptionsResponse:
+    coordinates = coordinates or await geocode_address(address)
+    if coordinates is None:
+        return ErrorResponse(error="Could not retrieve latitude and longitude for the given address.")
+    if isinstance(coordinates, LocationOptionsResponse):
+        return coordinates
+    latitude, longitude = coordinates.latitude.strip(), coordinates.longitude.strip()
+    try:
+        weather, altitude = await asyncio.gather(
+            fetch_weather_forecast(latitude, longitude), fetch_elevation(latitude, longitude)
+        )
+        elevation = altitude["elevation"][0]
+        daily = weather["daily"]
+        results = []
+        for index, date in enumerate(daily["time"]):
+            weather = {"current": {
+                "temp_c": daily["temperature_2m_mean"][index],
+                "humidity": daily["relative_humidity_2m_mean"][index],
+                "precip_mm": daily["precipitation_sum"][index],
+                "gust_kph": daily["wind_gusts_10m_max"][index],
+            }}
+            breakdown = await calculate_activity_score_breakdown(weather, {"elevation": [elevation]})
+            results.append({"date": date, **asdict(breakdown)})
+        return results
+    except (requests.RequestException, TimeoutError, TypeError, ValueError, KeyError, IndexError) as error:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not retrieve weather forecast.") from error
 
 
 def _run_conditions(weather: dict) -> tuple[float, float]:

@@ -2,7 +2,6 @@ from unittest.mock import Mock
 
 import pytest
 import requests
-
 from weather_score.weather.providers import openmeteo
 
 
@@ -20,6 +19,25 @@ async def test_returns_elevation(monkeypatch):
         "https://api.open-meteo.com/v1/elevation?latitude=-27.47&longitude=153.03",
         timeout=10,
     )
+    response.raise_for_status.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_returns_seven_day_forecast(monkeypatch):
+    dates = [f"2026-11-{day:02d}" for day in range(1, 8)]
+    daily = {"time": dates, "temperature_2m_mean": [20] * 7,
+             "relative_humidity_2m_mean": [60] * 7, "precipitation_sum": [0] * 7,
+             "wind_gusts_10m_max": [10] * 7}
+    response = Mock()
+    response.json.return_value = {"daily": daily}
+    get = Mock(return_value=response)
+    monkeypatch.setattr(openmeteo.requests, "get", get)
+
+    forecast = await openmeteo.fetch_weather_forecast("-23.5", "-46.6")
+
+    assert forecast["daily"] == daily
+    assert len(forecast["daily"]["time"]) == 7
+    assert get.call_args.kwargs["params"]["forecast_days"] == 7
     response.raise_for_status.assert_called_once_with()
 
 

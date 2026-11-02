@@ -65,3 +65,8 @@ test('lap bars use lap start plus duration, ignoring unusable stop timestamps', 
   ], start, 1800)
   assert.deepEqual(markers, [{ x: 10, label: '1' }, { x: 15 + 30.5 / 60, label: '2' }])
 })
+
+test('activity chart preserves recorded elevation and missing samples', () => {
+  const series = buildActivitySeries([{ altitude: 120, speed: 10 }, { altitude: null, speed: 10 }, { altitude: -5, speed: 10 }], '')
+  assert.deepEqual(series.elevation.map((point) => point.y), [120, null, -5])
+})

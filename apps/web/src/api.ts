@@ -6,6 +6,12 @@ export type RunGrade = {
   wind_metabolic_change_percent: number
   thermal_performance_loss_percent: number
 }
+export type TrainingDay = {
+  date: string; score: number; temperature_c?: number; humidity_percent?: number
+  precipitation_mm?: number; wind_gust_kph?: number; altitude_m?: number
+  temperature_penalty?: number; wind_penalty?: number; humidity_penalty?: number
+  altitude_penalty?: number; precipitation_penalty?: number
+}
 export type Activity = {
   activity_id: string
   activity_type: string
@@ -429,4 +435,16 @@ export async function fetchRunScore(baseUrl: string, address: string, location?:
     && data.options.every((option): option is LocationOption => isRecord(option)
       && typeof option.name === 'string' && typeof option.latitude === 'string' && typeof option.longitude === 'string')) return data.options
   throw new Error('The service returned an unexpected response. Please try again later.')
+}
+
+export async function fetchRunForecast(baseUrl: string, address: string, location?: LocationOption): Promise<TrainingDay[] | LocationOption[]> {
+  const query = new URLSearchParams({ address: address.trim() })
+  if (location) { query.set('latitude', location.latitude); query.set('longitude', location.longitude) }
+  const response = await fetch(`${base(baseUrl)}/score/run/forecast?${query}`, { signal: AbortSignal.timeout(30_000) })
+  if (!response.ok) throw new Error('The training forecast is unavailable right now. Please try again shortly.')
+  const data: unknown = await response.json().catch(() => null)
+  const dayNumbers = ['score', 'temperature_c', 'humidity_percent', 'precipitation_mm', 'wind_gust_kph', 'altitude_m', 'temperature_penalty', 'wind_penalty', 'humidity_penalty', 'altitude_penalty', 'precipitation_penalty']
+  if (Array.isArray(data) && data.every((item) => isRecord(item) && typeof item.date === 'string' && Number.isFinite(Date.parse(item.date)) && typeof item.score === 'number' && Number.isFinite(item.score) && dayNumbers.every((key) => item[key] === undefined || typeof item[key] === 'number' && Number.isFinite(item[key])))) return data as TrainingDay[]
+  if (isRecord(data) && Array.isArray(data.options) && data.options.every((item) => isRecord(item) && typeof item.name === 'string' && typeof item.latitude === 'string' && typeof item.longitude === 'string')) return data.options as LocationOption[]
+  throw new Error('The service returned an unexpected forecast response.')
 }

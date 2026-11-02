@@ -2,10 +2,23 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchActivityTss, fetchWeeklyTss, fetchWeeklyTraining, fetchProfile, saveProfile, fetchRunGrade, fetchRunScore, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities, fetchGarminSyncProgress } from './api.ts'
+import { SESSION_AUTH, endSession, fetchAccessToken, fetchActivityDetail, fetchActivityGrades, fetchActivityIndex, fetchActivitySummary, fetchActivityTss, fetchWeeklyTss, fetchWeeklyTraining, fetchProfile, saveProfile, fetchRunGrade, fetchRunScore, fetchRunForecast, fetchRunningPredictions, hasSession, startActivityGrade, syncGarminActivities, fetchGarminSyncProgress } from './api.ts'
 
 
 const grade = JSON.parse(readFileSync(new URL('../../../tests/contracts/run_grade.json', import.meta.url), 'utf8'))
+
+test('run forecast returns daily scores and supports location disambiguation', async (t) => {
+  const forecast = [{ date: '2026-11-02', score: 92, temperature_c: 20, humidity_percent: 55,
+    precipitation_mm: 0, wind_gust_kph: 10, altitude_m: 20, temperature_penalty: 1,
+    wind_penalty: 1, humidity_penalty: 0, altitude_penalty: 0, precipitation_penalty: 0 }]
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(forecast)))
+  assert.deepEqual(await fetchRunForecast('/api', 'São Paulo', { name: 'São Paulo', latitude: '-23.5', longitude: '-46.6' }), forecast)
+  assert.match(String(mock.mock.calls[0].arguments[0]), /latitude=-23.5/)
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify([{ date: '2026-11-03', score: 88 }])))
+  assert.deepEqual(await fetchRunForecast('/api', 'São Paulo'), [{ date: '2026-11-03', score: 88 }])
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify({ options: [{ name: 'A', latitude: '1', longitude: '2' }] })))
+  assert.deepEqual(await fetchRunForecast('/api', 'A'), [{ name: 'A', latitude: '1', longitude: '2' }])
+})
 
 test('weekly TSS uses local calendar date and validates partial, empty and failed totals', async (t) => {
   const result = { week_start: '2026-09-21', week_end: '2026-09-27', tss: 250.5, threshold_heart_rate_bpm: 157, scored_activity_count: 3, excluded_activity_count: 1 }
