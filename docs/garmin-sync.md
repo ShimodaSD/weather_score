@@ -136,3 +136,30 @@ the sync. Repeated syncs refresh existing values as well as new activities.
 The stored column is a snapshot of the last successful sync. After changing the
 profile threshold, run sync to refresh stored values; the dashboard and weekly
 total already calculate live using the current profile threshold.
+
+## Import a downloaded archive
+
+To import a `tar.gz` containing the `Activities/` directory without downloading
+from Garmin, copy the archive into the backend container and run the importer:
+
+```bash
+docker compose cp /Users/shimoda/db_garmin/garmin-activities-20261101-194904.tar.gz backend:/tmp/garmin-activities.tar.gz
+docker compose exec -w /app backend uv run --env-file .env --extra garmin python scripts/restore_garmin_archive.py /tmp/garmin-activities.tar.gz
+```
+
+Run only one Garmin import at a time. The script restores missing files without
+replacing existing files, rejects conflicts and unsafe archive paths, and runs a
+full local GarminDB import into SQLite and PostgreSQL. The transient activity-list
+cache is skipped. Existing database records are not removed. Configure
+`GARMINDB_PATH`, `DB_NAME`, `DB_NAME_GARMIN`, and the database connection as for
+normal sync; a Garmin API key is not needed for this import.
+
+## Back up downloaded activity files
+
+Set `GARMIN_BACKUP_SOURCE` to the downloaded `Activities` directory and `GARMIN_BACKUP_PATH` to the
+full destination filename ending in `.tar.gz` in the repository-root `.env`.
+From the repository root on the host, run `make garmin-backup`. The archive
+contains the downloaded activity files under `Activities/`, and works with the
+archive importer above. It does not include the databases or credentials.
+The destination must not already exist; choose a new filename for each backup.
+Run the backup after downloads have finished so the archive is complete.

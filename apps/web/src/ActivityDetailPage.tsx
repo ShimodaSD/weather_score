@@ -6,7 +6,6 @@ import { formatDate, formatDuration, formatNumber, formatPace } from './Activiti
 import { buildActivitySeries, buildLapMarkers, MAX_PACE_MIN_PER_KM, MIN_PACE_MIN_PER_KM, PACE_ZONES, paceZoneName } from './activityChart'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
-const ACTIVITY_TABLE_PAGE_SIZE = 500
 Chart.register(LineController, LineElement, PointElement, LinearScale, Legend, Tooltip)
 const paceZoneBands: Plugin<'line'> = {
   id: 'paceZoneBands',
@@ -36,12 +35,11 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function HeartRateChart({ records, laps, startedAt, elapsedSeconds }: { records: Record<string, unknown>[]; laps: Record<string, unknown>[]; startedAt: string; elapsedSeconds: number }) {
   const canvas = useRef<HTMLCanvasElement>(null)
-  const [visible, setVisible] = useState([true, true, true])
-  const [showTable, setShowTable] = useState(false)
-  const [tablePage, setTablePage] = useState(0)
+  const [visible, setVisible] = useState([true, true, true, true])
   const series = useMemo(() => buildActivitySeries(records, startedAt), [records, startedAt])
   const lapMarkers = useMemo(() => buildLapMarkers(laps, startedAt, elapsedSeconds), [laps, startedAt, elapsedSeconds])
   const hasData = series.heartRate.some((point) => point.y !== null) || series.pace.some((point) => point.y !== null)
+  const hasElevation = series.elevation.some((point) => point.y !== null)
   const hasAdjustedPace = series.adjustedPace.some((point) => point.y !== null)
 
   useEffect(() => {
@@ -86,6 +84,7 @@ function HeartRateChart({ records, laps, startedAt, elapsedSeconds }: { records:
         { hidden: !visible[0], label: 'Heart rate (bpm)', data: series.heartRate.map((point) => ({ x: point.x, y: point.y ?? NaN })), yAxisID: 'bpm', borderColor: heartRateColor, backgroundColor: heartRateColor, borderWidth: 2, pointRadius: 0, spanGaps: false },
         { hidden: !visible[1], borderDash: [8, 4], label: 'Pace (min/km)', data: series.pace.map((point) => ({ x: point.x, y: point.y ?? NaN })), yAxisID: 'pace', borderColor: paceColor, backgroundColor: paceColor, borderWidth: 2, pointRadius: 0, spanGaps: false },
         ...(hasAdjustedPace ? [{ hidden: !visible[2], label: 'Climb-adjusted speed (pace equivalent)', data: series.adjustedPace.map((point) => ({ x: point.x, y: point.y ?? NaN })), yAxisID: 'pace', borderColor: adjustedColor, backgroundColor: adjustedColor, borderWidth: 2, borderDash: [2, 4], pointRadius: 0, spanGaps: false }] : []),
+        ...(hasElevation ? [{ hidden: !visible[3], label: 'Elevation (m)', data: series.elevation.map((point) => ({ x: point.x, y: point.y ?? NaN })), yAxisID: 'elevation', borderColor: '#7956a8', backgroundColor: '#7956a8', borderWidth: 2, borderDash: [12, 4, 2, 4], pointRadius: 0, spanGaps: false }] : []),
       ] },
       options: {
         responsive: true,
@@ -98,23 +97,21 @@ function HeartRateChart({ records, laps, startedAt, elapsedSeconds }: { records:
           tooltip: { callbacks: {
             title: (items) => `${Number(items[0]?.parsed.x ?? 0).toFixed(1)} ${series.xUnit === 'minutes' ? 'elapsed min' : 'samples'}`,
             afterTitle: (items) => `Zone: ${paceZoneName(series.pace[items[0]?.dataIndex ?? -1]?.y ?? MAX_PACE_MIN_PER_KM)}`,
-            label: (item) => item.parsed.y == null ? '' : item.datasetIndex === 0 ? `Heart rate: ${Math.round(item.parsed.y)} bpm` : item.datasetIndex === 2 ? `Climb-adjusted speed: ${(60 / item.parsed.y).toFixed(1)} km/h (${formatPace(item.parsed.y * 60)})` : item.parsed.y >= MAX_PACE_MIN_PER_KM ? 'Pace: 9:00/km or slower, or no speed' : `Pace: ${formatPace(item.parsed.y * 60)}`,
+            label: (item) => item.parsed.y == null ? '' : item.dataset.yAxisID === 'elevation' ? `Elevation: ${item.parsed.y.toFixed(1)} m` : item.datasetIndex === 0 ? `Heart rate: ${Math.round(item.parsed.y)} bpm` : item.datasetIndex === 2 ? `Climb-adjusted speed: ${(60 / item.parsed.y).toFixed(1)} km/h (${formatPace(item.parsed.y * 60)})` : item.parsed.y >= MAX_PACE_MIN_PER_KM ? 'Pace: 9:00/km or slower, or no speed' : `Pace: ${formatPace(item.parsed.y * 60)}`,
           } },
         },
         scales: {
           x: { type: 'linear', min: 0, ...(series.xUnit === 'minutes' && elapsedSeconds > 0 ? { max: elapsedSeconds / 60 } : {}), title: { display: true, text: series.xUnit === 'minutes' ? 'Elapsed minutes' : 'Recorded sample' } },
           bpm: { type: 'linear', position: 'left', title: { display: true, text: 'Heart rate (bpm)' } },
+          elevation: { type: 'linear', display: hasElevation && visible[3], position: 'right', title: { display: true, text: 'Elevation (m)' }, grid: { drawOnChartArea: false } },
           pace: { type: 'linear', position: 'right', reverse: true, suggestedMin: MIN_PACE_MIN_PER_KM, max: MAX_PACE_MIN_PER_KM, title: { display: true, text: 'Pace (min/km)' }, grid: { drawOnChartArea: false }, ticks: { stepSize: 0.5, callback: (value) => formatPace(Number(value) * 60).replace(' /km', '') } },
         },
       },
     })
     return () => chart.destroy()
-  }, [series, hasData, hasAdjustedPace, lapMarkers, elapsedSeconds, visible])
+  }, [series, hasData, hasAdjustedPace, hasElevation, lapMarkers, elapsedSeconds, visible])
 
-  const pageStart = tablePage * ACTIVITY_TABLE_PAGE_SIZE
-  const tableRows = series.pace.slice(pageStart, pageStart + ACTIVITY_TABLE_PAGE_SIZE)
-  const pageCount = Math.ceil(series.pace.length / ACTIVITY_TABLE_PAGE_SIZE)
-  return <section className="full-detail-section" aria-labelledby="heart-rate-title"><div className="full-detail-section-head"><h2 id="heart-rate-title">Heart rate & pace zones</h2><span>{records.length.toLocaleString()} recorded samples</span></div>{hasData && <fieldset className="chart-controls"><legend>Show chart series</legend>{['Heart rate (solid)', 'Pace (dashed)', ...(hasAdjustedPace ? ['Climb-adjusted pace (dotted)'] : [])].map((label, index) => <label key={label}><input type="checkbox" checked={visible[index]} onChange={() => setVisible((current) => current.map((value, i) => i === index ? !value : value))} />{label}</label>)}</fieldset>}{hasData ? <div className="activity-combined-chart"><canvas ref={canvas} role="img" aria-label={`Heart rate and pace over shaded pace zones with ${lapMarkers.length} lap-end markers; climb-adjusted speed appears when elevation data is available; Zona 6 includes all paces faster than 4:10 per kilometre`}>Heart rate and pace chart</canvas></div> : <p className="full-detail-empty">No recorded samples are available for this chart.</p>}<div className="pace-zone-legend" aria-label="Pace zone bands">{PACE_ZONES.map((zone) => <span key={zone.name}><i style={{ backgroundColor: zone.color }} aria-hidden="true" /><strong>{zone.name}</strong> {zone.name === 'Zona 6' ? '<4:10' : `${formatPace(zone.fastSeconds).replace(' /km', '')}–${formatPace(zone.slowSeconds).replace(' /km', '')}`}</span>)}</div><p className="chart-caption">{hasAdjustedPace ? 'The dashed line estimates flat-equivalent speed from uphill gain over a rolling 100 m; hover for km/h.' : 'Climb-adjusted speed is unavailable without enough altitude and distance data.'} {lapMarkers.length ? 'Vertical bars mark lap ends; numbers appear where space allows.' : ''} Missing or slower speed is shown at 9:00/km in the chart. Solid: heart rate; dashed: pace; dotted: climb-adjusted pace.</p>{hasData && <details className="chart-data" onToggle={(event) => setShowTable(event.currentTarget.open)}><summary>View heart rate and pace data</summary>{showTable && <div className="chart-data-table">{pageCount > 1 && <nav aria-label="Activity data pages"><button type="button" disabled={tablePage === 0} onClick={() => setTablePage((page) => page - 1)}>Previous</button><span>Page {tablePage + 1} of {pageCount}</span><button type="button" disabled={tablePage === pageCount - 1} onClick={() => setTablePage((page) => page + 1)}>Next</button></nav>}<table><caption>Recorded chart values. Missing readings appear as —. Pace shows the recorded value; chart pace is capped at 9:00/km.</caption><thead><tr><th scope="col">{series.xUnit === 'minutes' ? 'Elapsed minutes' : 'Sample'}</th><th scope="col">Heart rate (bpm)</th><th scope="col">Pace (min/km)</th>{hasAdjustedPace && <th scope="col">Climb-adjusted pace (min/km)</th>}</tr></thead><tbody>{tableRows.map((point, index) => { const rowIndex = pageStart + index; return <tr key={rowIndex}><th scope="row">{point.x.toFixed(2)}</th><td>{series.heartRate[rowIndex]?.y?.toFixed(0) ?? '—'}</td><td>{series.rawPace[rowIndex]?.y == null ? '—' : formatPace(series.rawPace[rowIndex].y! * 60)}</td>{hasAdjustedPace && <td>{series.adjustedPace[rowIndex]?.y == null ? '—' : formatPace(series.adjustedPace[rowIndex].y! * 60)}</td>}</tr> })}</tbody></table></div>}</details>}</section>
+  return <section className="full-detail-section" aria-labelledby="heart-rate-title"><div className="full-detail-section-head"><h2 id="heart-rate-title">Pace, heart rate & elevation</h2><span>{records.length.toLocaleString()} recorded samples</span></div>{hasData && <fieldset className="chart-controls"><legend>Show chart series</legend>{[['Heart rate (solid)', 0], ['Pace (dashed)', 1], ...(hasAdjustedPace ? [['Climb-adjusted pace (dotted)', 2] as const] : []), ...(hasElevation ? [['Elevation (dash-dot)', 3] as const] : [])].map(([label, index]) => <label key={label}><input type="checkbox" checked={visible[Number(index)]} onChange={() => setVisible((current) => current.map((value, i) => i === Number(index) ? !value : value))} />{label}</label>)}</fieldset>}{hasData ? <div className="activity-combined-chart"><canvas ref={canvas} role="img" aria-label={`Heart rate, pace and elevation over shaded pace zones with ${lapMarkers.length} lap-end markers; climb-adjusted speed appears when elevation data is available; Zona 6 includes all paces faster than 4:10 per kilometre`}>Heart rate and pace chart</canvas></div> : <p className="full-detail-empty">No recorded samples are available for this chart.</p>}<div className="pace-zone-legend" aria-label="Pace zone bands">{PACE_ZONES.map((zone) => <span key={zone.name}><i style={{ backgroundColor: zone.color }} aria-hidden="true" /><strong>{zone.name}</strong> {zone.name === 'Zona 6' ? '<4:10' : `${formatPace(zone.fastSeconds).replace(' /km', '')}–${formatPace(zone.slowSeconds).replace(' /km', '')}`}</span>)}</div><p className="chart-caption">{hasAdjustedPace ? 'The dashed line estimates flat-equivalent speed from uphill gain over a rolling 100 m; hover for km/h.' : 'Climb-adjusted speed is unavailable without enough altitude and distance data.'} {lapMarkers.length ? 'Vertical bars mark lap ends; numbers appear where space allows.' : ''} Missing or slower speed is shown at 9:00/km in the chart. Solid: heart rate; dashed: pace; dotted: climb-adjusted pace.</p></section>
 }
 
 function RawEntries({ title, rows }: { title: string; rows: Record<string, unknown>[] }) {

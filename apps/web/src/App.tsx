@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type CSSProperties } from 'react'
 import { SESSION_AUTH, endSession, fetchAccessToken, fetchRunGrade, fetchRunScore, hasSession, type LocationOption, type RunGrade } from './api'
 import Activities from './Activities'
+import TrainingDaysPage from './TrainingDaysPage'
 
 const ActivityDetailPage = lazy(() => import('./ActivityDetailPage'))
 const RunningPredictionsPage = lazy(() => import('./RunningPredictionsPage'))
@@ -54,10 +55,11 @@ export default function App() {
   const isPredictions = route === '#predictions'
   const isGrades = route === '#grades'
   const isProfile = route === '#profile'
+  const isTrainingDays = route === '#training-days'
 
   useEffect(() => {
     if (checkingSession) return
-    const title = isProfile ? 'Profile' : isGrades ? 'Route grades' : isPredictions ? 'Predictions' : activityId ? 'Activity details' : isActivities ? 'Activities' : 'Run conditions'
+    const title = isTrainingDays ? 'Training days' : isProfile ? 'Profile' : isGrades ? 'Route grades' : isPredictions ? 'Predictions' : activityId ? 'Activity details' : isActivities ? 'Activities' : 'Run conditions'
     document.title = `${title} — Wind Score`
     const focusHeading = () => {
       const heading = document.querySelector<HTMLElement>('main h1')
@@ -70,7 +72,7 @@ export default function App() {
     const observer = new MutationObserver(() => { if (focusHeading()) observer.disconnect() })
     observer.observe(document.getElementById('root')!, { childList: true, subtree: true })
     return () => observer.disconnect()
-  }, [route, checkingSession, isProfile, isGrades, isPredictions, activityId, isActivities])
+  }, [route, checkingSession, isProfile, isGrades, isPredictions, isTrainingDays, activityId, isActivities])
 
   function openSignIn() {
     setSignInError('')
@@ -145,7 +147,7 @@ export default function App() {
     }}>Skip to content</a>
     <header className="header">
       <a className="brand" href="#check" aria-label="Wind Score home"><span className="brand-mark"><Icon name="wind" /></span>windscore<span className="brand-dot">.</span></a>
-      <nav aria-label="Main navigation"><a className={!isActivities && !isPredictions && !isGrades && !isProfile ? 'nav-active' : ''} href="#check" aria-current={!isActivities && !isPredictions && !isGrades && !isProfile ? 'page' : undefined}>Run conditions</a><a className={isActivities ? 'nav-active' : ''} href="#activities" aria-current={isActivities ? 'page' : undefined}>Activities</a><a className={isGrades ? 'nav-active' : ''} href="#grades" aria-current={isGrades ? 'page' : undefined}>Route grades</a><a className={isPredictions ? 'nav-active' : ''} href="#predictions" aria-current={isPredictions ? 'page' : undefined}>Predictions</a>{token && <a className={isProfile ? 'nav-active' : ''} href="#profile" aria-current={isProfile ? 'page' : undefined}>Profile</a>}</nav>
+      <nav aria-label="Main navigation"><a className={!isActivities && !isPredictions && !isGrades && !isProfile && !isTrainingDays ? 'nav-active' : ''} href="#check" aria-current={!isActivities && !isPredictions && !isGrades && !isProfile && !isTrainingDays ? 'page' : undefined}>Run conditions</a><a className={isTrainingDays ? 'nav-active' : ''} href="#training-days" aria-current={isTrainingDays ? 'page' : undefined}>Training days</a><a className={isActivities ? 'nav-active' : ''} href="#activities" aria-current={isActivities ? 'page' : undefined}>Activities</a><a className={isGrades ? 'nav-active' : ''} href="#grades" aria-current={isGrades ? 'page' : undefined}>Route grades</a><a className={isPredictions ? 'nav-active' : ''} href="#predictions" aria-current={isPredictions ? 'page' : undefined}>Predictions</a>{token && <a className={isProfile ? 'nav-active' : ''} href="#profile" aria-current={isProfile ? 'page' : undefined}>Profile</a>}</nav>
       {signOutError && <span className="error-message" role="alert">{signOutError}</span>}{token ? <button className="header-auth" type="button" onClick={() => { void signOut() }} disabled={loading}>Sign out</button> : !isActivities && <button className="header-auth" type="button" onClick={openSignIn}>Sign in</button>}
     </header>
     <dialog className="sign-in-dialog" ref={signInDialog} aria-labelledby="sign-in-title">
@@ -154,7 +156,7 @@ export default function App() {
       <form onSubmit={signIn}><label htmlFor="username">Username</label><input className="text-field" id="username" name="username" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={signingIn} /><label className="field-label" htmlFor="password">Password</label><input className="text-field" id="password" name="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={signingIn} /><button className="submit" type="submit" disabled={signingIn}>{signingIn ? 'Signing in…' : 'Sign in'}</button>{signInError && <p className="error-message" role="alert">{signInError}</p>}</form>
     </dialog>
 
-    {isProfile ? <Suspense fallback={<main id="main"><p className="dashboard-state" role="status">Opening profile…</p></main>}><ProfilePage key={token} token={token} onTokenChange={setToken} onSignIn={openSignIn} /></Suspense> : isGrades ? <Suspense fallback={<main id="main" className="grades-page"><p className="dashboard-state" role="status">Opening activity grades…</p></main>}><ActivityGradesPage token={token} onTokenChange={setToken} onSignIn={openSignIn} /></Suspense> : isPredictions ? <Suspense fallback={<main id="main" className="predictions-page"><p className="dashboard-state" role="status">Opening predictions…</p></main>}><RunningPredictionsPage token={token} onTokenChange={setToken} onSignIn={openSignIn} /></Suspense> : isActivities ? activityId && token ? <Suspense fallback={<main id="main" className="full-activity-page"><p className="dashboard-state" role="status">Opening activity details…</p></main>}><ActivityDetailPage id={activityId} token={token} onTokenChange={setToken} /></Suspense> : <Activities key={token} token={token} onTokenChange={setToken} /> : <main id="main">
+    {isTrainingDays ? <TrainingDaysPage /> : isProfile ? <Suspense fallback={<main id="main"><p className="dashboard-state" role="status">Opening profile…</p></main>}><ProfilePage key={token} token={token} onTokenChange={setToken} onSignIn={openSignIn} /></Suspense> : isGrades ? <Suspense fallback={<main id="main" className="grades-page"><p className="dashboard-state" role="status">Opening activity grades…</p></main>}><ActivityGradesPage token={token} onTokenChange={setToken} onSignIn={openSignIn} /></Suspense> : isPredictions ? <Suspense fallback={<main id="main" className="predictions-page"><p className="dashboard-state" role="status">Opening predictions…</p></main>}><RunningPredictionsPage token={token} onTokenChange={setToken} onSignIn={openSignIn} /></Suspense> : isActivities ? activityId && token ? <Suspense fallback={<main id="main" className="full-activity-page"><p className="dashboard-state" role="status">Opening activity details…</p></main>}><ActivityDetailPage id={activityId} token={token} onTokenChange={setToken} /></Suspense> : <Activities key={token} token={token} onTokenChange={setToken} /> : <main id="main">
       <section className="intro" aria-labelledby="page-title">
         <div className="intro-copy"><div className="eyebrow"><span className="tiny-line" /> WEATHER, TRANSLATED FOR RUNNERS</div>
         <h1 id="page-title">Is today a <em>good day to run?</em></h1>

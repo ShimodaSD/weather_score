@@ -1,8 +1,10 @@
 from copy import deepcopy
 
 import pytest
-
-from weather_score.application.main import calculate_activity_score
+from weather_score.application.main import (
+    calculate_activity_score,
+    calculate_activity_score_breakdown,
+)
 
 
 def conditions(**overrides):
@@ -26,6 +28,21 @@ async def test_combines_all_penalties():
     weather = conditions(temp_c=20, humidity=75, precip_mm=10, gust_kph=36)
 
     assert await calculate_activity_score(weather, {"elevation": [1000]}) == 75.33
+
+
+@pytest.mark.asyncio
+async def test_breakdown_matches_total_and_reports_each_deduction():
+    breakdown = await calculate_activity_score_breakdown(
+        conditions(temp_c=20, humidity=75, precip_mm=10, gust_kph=36),
+        {"elevation": [1000]},
+    )
+
+    assert breakdown.score == 75.33
+    assert breakdown.temperature_penalty == 3.27
+    assert breakdown.wind_penalty == 16.6
+    assert breakdown.humidity_penalty == 0
+    assert breakdown.altitude_penalty == 1.5
+    assert breakdown.precipitation_penalty == 3.3
 
 
 @pytest.mark.asyncio

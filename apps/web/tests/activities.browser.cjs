@@ -285,14 +285,6 @@ async function main() {
     assert.equal(await heartRate.isChecked(), false)
     await page.keyboard.press('Space')
     assert.equal(await heartRate.isChecked(), true)
-    await page.getByText('View heart rate and pace data', { exact: true }).click()
-    await page.locator('.chart-data-table tbody tr').first().waitFor()
-    assert.equal(await page.locator('.chart-data-table tbody tr').count(), 500)
-    assert.equal(await page.locator('.chart-data-table tbody td').first().innerText(), '150')
-    assert.equal(await page.locator('.chart-data-table tbody tr').nth(0).locator('td').nth(1).innerText(), '—')
-    assert.equal(await page.locator('.chart-data-table tbody tr').nth(1).locator('td').nth(1).innerText(), '10:00 /km')
-    await page.getByRole('button', { name: 'Next' }).click()
-    assert.equal(await page.locator('.chart-data-table tbody tr').count(), 1)
     console.log('Activities sync, grade polling, keyboard navigation, responsive and chart checks passed.')
   } finally { await browser.close() }
 }

@@ -234,7 +234,7 @@ frontend client tests. The chart includes an expandable data table.
 UI/UX regression coverage in `apps/web/tests/activities.browser.cjs` includes
 skip-link routing, Profile navigation, route titles/focus, responsive overflow,
 and keyboard chart controls/data. Run with the existing Playwright setup from
-`apps/web/README.md`. The full-detail chart exposes a recorded-value table;
+`apps/web/README.md`. The full-detail chart has keyboard-operable series controls;
 weekly sport bars use solid/striped patterns as well as colors.
 
 `GET /activities/index` includes nullable `distance_km` for the dashboard's

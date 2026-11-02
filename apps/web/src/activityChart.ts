@@ -31,7 +31,7 @@ export function buildLapMarkers(laps: Record<string, unknown>[], startedAt: stri
   })
 }
 
-export function buildActivitySeries(records: Record<string, unknown>[], startedAt: string): { heartRate: ChartPoint[]; pace: ChartPoint[]; rawPace: ChartPoint[]; adjustedPace: ChartPoint[]; xUnit: 'minutes' | 'samples' } {
+export function buildActivitySeries(records: Record<string, unknown>[], startedAt: string): { heartRate: ChartPoint[]; pace: ChartPoint[]; rawPace: ChartPoint[]; adjustedPace: ChartPoint[]; elevation: ChartPoint[]; xUnit: 'minutes' | 'samples' } {
   const firstTimestamp = records.find((record) => typeof record.timestamp === 'string' && Number.isFinite(Date.parse(record.timestamp)))?.timestamp
   const activityStart = Date.parse(startedAt)
   const firstTime = typeof firstTimestamp === 'string' ? Number.isFinite(activityStart) ? activityStart : Date.parse(firstTimestamp) : null
@@ -39,6 +39,7 @@ export function buildActivitySeries(records: Record<string, unknown>[], startedA
   const pace: ChartPoint[] = []
   const rawPace: ChartPoint[] = []
   const adjustedPace: ChartPoint[] = []
+  const elevation: ChartPoint[] = []
   let elevationWindow: { distance: number; altitude: number; gain: number }[] = []
 
   records.forEach((record, index) => {
@@ -53,6 +54,7 @@ export function buildActivitySeries(records: Record<string, unknown>[], startedA
     pace.push({ x, y: Math.min(minutesPerKm ?? MAX_PACE_MIN_PER_KM, MAX_PACE_MIN_PER_KM) })
     const distance = record.distance
     const altitude = record.altitude
+    elevation.push({ x, y: typeof altitude === 'number' && Number.isFinite(altitude) ? altitude : null })
     let adjusted: number | null = null
     if (typeof distance === 'number' && Number.isFinite(distance) && distance >= 0
       && typeof altitude === 'number' && Number.isFinite(altitude)) {
@@ -73,5 +75,5 @@ export function buildActivitySeries(records: Record<string, unknown>[], startedA
     adjustedPace.push({ x, y: adjusted })
   })
 
-  return { heartRate, pace, rawPace, adjustedPace, xUnit: firstTime === null ? 'samples' : 'minutes' }
+  return { heartRate, pace, rawPace, adjustedPace, elevation, xUnit: firstTime === null ? 'samples' : 'minutes' }
 }

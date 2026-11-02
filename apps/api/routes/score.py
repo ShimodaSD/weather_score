@@ -9,7 +9,7 @@ try:
         LocationOptionsResponse,
     )
     from ..schemas.score import ScoreResponse
-    from ..services.scoring import score_activity_at_address
+    from ..services.scoring import forecast_run_at_address, score_activity_at_address
 except ImportError:
     from schemas.location import (
         CoordinatesResponse,
@@ -17,7 +17,7 @@ except ImportError:
         LocationOptionsResponse,
     )
     from schemas.score import ScoreResponse
-    from services.scoring import score_activity_at_address
+    from services.scoring import forecast_run_at_address, score_activity_at_address
 
 router = APIRouter(prefix="/score", tags=["Score"])
 
@@ -41,4 +41,16 @@ async def score_run(
         else None
     )
     return await score_activity_at_address(address, coordinates=coordinates)
+
+
+@router.get("/run/forecast", summary="Recommend suitable training days for running")
+async def forecast_run(
+    address: str,
+    latitude: str | None = None,
+    longitude: str | None = None,
+) -> list[dict] | ErrorResponse | LocationOptionsResponse:
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(status_code=422, detail="Latitude and longitude must be provided together.")
+    coordinates = CoordinatesResponse(latitude=latitude, longitude=longitude) if latitude is not None else None
+    return await forecast_run_at_address(address, coordinates=coordinates)
 
