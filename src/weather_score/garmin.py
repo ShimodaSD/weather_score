@@ -1,10 +1,12 @@
 """Download activity files using the Garmin Connect Personal API."""
 
+import calendar
 import io
 import json
 import os
 import time
 import zipfile
+from datetime import date, datetime
 from pathlib import Path
 
 import requests
@@ -13,20 +15,20 @@ BASE_URL = "https://personal.connectapi.garmin.com"
 TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token"
 SEARCH_PATH = "/activitylist-service/activities/search/activities"
 PAGE_SIZE = 99
-ACTIVITY_CACHE_SECONDS = 300
 
 
-def fetch_activities(directory: Path, count: int) -> None:
+def fetch_activities(directory: Path) -> None:
     """Download missing summaries, details and FIT files within the sync window."""
     key = os.environ.get("GARMIN_CONNECT", "").strip()
     if not key:
         raise ValueError("set GARMIN_CONNECT to a Garmin Personal API key")
     if not key.isascii() or any(character.isspace() for character in key):
         raise ValueError("GARMIN_CONNECT must be an API key without whitespace")
-    if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
-        raise ValueError("activity download count must be a positive integer")
     directory.mkdir(parents=True, exist_ok=True)
-    cache = directory / ".activity-list.json"
+    today = datetime.now().astimezone().date()
+    year, month = divmod(today.year * 12 + today.month - 4, 12)
+    month += 1
+    start_date = date(year, month, min(today.day, calendar.monthrange(year, month)[1]))
     with requests.Session() as session:
 
         def fetch_response(
@@ -65,29 +67,17 @@ def fetch_activities(directory: Path, count: int) -> None:
             {"Authorization": f"Bearer {token}", "Accept": "application/json"}
         )
         activities = []
-        fetched_activity_list = False
-        cache_hit = False
-        if (
-            cache.is_file()
-            and time.time() - cache.stat().st_mtime < ACTIVITY_CACHE_SECONDS
-        ):
-            try:
-                cached = json.loads(cache.read_text())
-                if isinstance(cached, list) and len(cached) >= count:
-                    activities = cached[:count]
-                    cache_hit = True
-            except (OSError, json.JSONDecodeError):
-                pass
         seen = set()
-        while not cache_hit and len(activities) < count:
-            fetched_activity_list = True
-            limit = min(PAGE_SIZE, count - len(activities))
+        while True:
+            limit = PAGE_SIZE
             page = fetch_response(
                 "GET",
                 SEARCH_PATH,
                 params={
                     "start": len(activities),
                     "limit": limit,
+                    "startDate": start_date.isoformat(),
+                    "endDate": today.isoformat(),
                 },
             ).json()
             if not isinstance(page, list) or len(page) > limit:
@@ -109,8 +99,6 @@ def fetch_activities(directory: Path, count: int) -> None:
                 activities.append(activity)
             if len(page) < limit:
                 break
-        if fetched_activity_list:
-            cache.write_text(json.dumps(activities))
 
         jobs = []
         for activity in activities:

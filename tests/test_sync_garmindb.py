@@ -75,7 +75,7 @@ def test_sqlite_uses_api_download_then_import_only(tmp_path, monkeypatch):
     run = MagicMock()
     monkeypatch.setattr(sync_garmindb, "_run_garmindb", run)
     sync_garmindb._sync_sqlite(tmp_path)
-    download.assert_called_once_with(tmp_path / "activities", 1000)
+    download.assert_called_once_with(tmp_path / "activities")
     run.assert_called_once_with(
         tmp_path,
         [
@@ -83,12 +83,11 @@ def test_sqlite_uses_api_download_then_import_only(tmp_path, monkeypatch):
             str(target.parent / "config"),
             "--activities",
             "--import",
-            "--latest",
         ],
     )
     _create_database(target, activities=True)
     sync_garmindb._sync_sqlite(tmp_path)
-    assert download.call_args.args[1] == 25
+    assert download.call_args.args == (tmp_path / "activities",)
 
 
 def test_api_failure_prevents_import(tmp_path, monkeypatch):
