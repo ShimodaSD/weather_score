@@ -36,7 +36,7 @@ Outside Docker, set `GARMINDB_PATH` to an absolute path ending in
 existing databases and history are not replaced.
 
 An existing `~/.GarminDb/GarminConnectConfig.json`, or an explicitly selected
-`GARMINDB_CONFIG`, may supply import settings and activity-window counts. It is
+`GARMINDB_CONFIG`, may supply import settings. It is
 not required. Sync writes a private import-only configuration under
 `HealthData/DBs/config/`, removes Garmin credentials from that generated copy,
 and leaves the source config untouched. New databases import in metric units;
@@ -49,7 +49,7 @@ stored measurement-system attributes in existing databases are respected.
 - `POST /personalapitoken-service/personal-api/personal-api-key/token` with
   `Authorization: ApiKey ...` and `Accept: */*`. The response is a plain-text
   bearer token, retained only in memory for this sync.
-- `GET /activitylist-service/activities/search/activities` with `start` and
+- `GET /activitylist-service/activities/search/activities` with `startDate`, `endDate`, `start` and
   `limit`, in pages of at most 99 activities.
 - `GET /activity-service/activity/{activityId}` for detail JSON.
 - `GET /download-service/files/activity/{activityId}` for the original ZIP.
@@ -60,13 +60,12 @@ the sync rather than silently skipping activities. Each request has a 30-second
 timeout, redirects are rejected, and the API retains its 10-minute sync timeout.
 An expired or revoked Personal API key must be replaced in `.env`.
 
-A fresh SQLite database downloads up to 1,000 activities by default. Later runs
-check the latest 25. Existing config values `data.download_all_activities` and
-`data.download_latest_activities` override those bounds. Increase the latter if
-you have more than 25 new activities or need older missing files repaired.
-This preserves the existing bounded sync window; it is not an unlimited history
-backfill. Existing summary, detail and FIT files are reused independently, so a
-partial download is repaired on the next sync within that window.
+Each sync requests activities from the past three calendar months through today,
+inclusive, using the server's local date. When the earlier month has fewer days,
+the start date is its last day. All matching pages are retrieved, without a
+count limit. Existing summary, detail and FIT files are reused independently,
+so a partial download is repaired on the next sync within that window. Existing
+local history is retained.
 
 The original archive must contain one FIT file, at most 128 MiB uncompressed.
 Only its contents are written to `{activityId}.fit`; archive paths are never
@@ -78,7 +77,7 @@ path and cause an explicit sync failure.
 ## Progress and import
 
 While listing activities, the UI shows “Checking Garmin for new data”. The total
-then counts missing summary JSON, detail JSON and FIT files in the configured
+then counts missing summary JSON, detail JSON and FIT files in the three-month
 window; existing files are excluded. Each successfully saved file advances the
 counter. A ZIP's FIT payload counts as one file. Summary JSON comes from the
 list response, so this is a saved-file count, not an HTTP-request or byte count.
@@ -86,7 +85,7 @@ list response, so this is a saved-file count, not an HTTP-request or byte count.
 After downloads finish, progress changes to importing. The existing GarminDB
 parser imports SQLite and PostgreSQL, then copies names and recalculates TSS.
 It does not make provider requests. The first PostgreSQL import processes all
-local files; later imports use GarminDB's existing latest-file selection.
+local files; SQLite import scans local files so downloaded activities are not limited by a latest-file count.
 `import_garmindb.py` normalizes JSON identifiers to text for PostgreSQL and uses
 metric units for fresh databases lacking a settings FIT file.
 

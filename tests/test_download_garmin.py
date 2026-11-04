@@ -2,6 +2,7 @@ import io
 import json
 import os
 import zipfile
+from datetime import date, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -27,6 +28,7 @@ def session(monkeypatch):
 
 def create_response(data=None, *, text="bearer-token", content=b"", status=200):
     response = MagicMock(status_code=status, text=text, content=content)
+    response.headers = {}
     response.json.return_value = data
     return response
 
@@ -45,7 +47,7 @@ def test_download_paginates_saves_files_and_reuses_existing_files(
         create_response({"activityId": 2}),
         create_response(content=create_archive()),
     ]
-    garmin.fetch_activities(tmp_path, 3)
+    garmin.fetch_activities(tmp_path)
     assert json.loads((tmp_path / "activity_1.json").read_text()) == {"activityId": 1}
     assert (tmp_path / "1.fit").read_bytes()[8:12] == b".FIT"
     assert (
@@ -80,16 +82,18 @@ def test_download_paginates_saves_files_and_reuses_existing_files(
     session.request.side_effect = [
         create_response(),
         create_response([{"activityId": 1}]),
+        create_response([]),
     ]
-    garmin.fetch_activities(tmp_path, 1)
-    assert session.request.call_count == 2
+    garmin.fetch_activities(tmp_path)
+    assert session.request.call_count == 3
     (tmp_path / "1.fit").unlink()
     session.request.side_effect = [
         create_response(),
         create_response([{"activityId": 1}]),
+        create_response([]),
         create_response(content=create_archive()),
     ]
-    garmin.fetch_activities(tmp_path, 1)
+    garmin.fetch_activities(tmp_path)
     assert (tmp_path / "1.fit").is_file()
 
 
@@ -100,7 +104,7 @@ def test_http_failures_preserve_files_without_leaking_credentials(
     (tmp_path / "existing.fit").write_bytes(b"existing")
     session.request.return_value = create_response(status=status, text="private-key")
     with pytest.raises(ValueError, match=f"HTTP {status}") as error:
-        garmin.fetch_activities(tmp_path, 1)
+        garmin.fetch_activities(tmp_path)
     assert "private-key" not in str(error.value)
     assert (tmp_path / "existing.fit").read_bytes() == b"existing"
     assert session.request.call_count == 1
@@ -120,7 +124,7 @@ def test_http_failures_preserve_files_without_leaking_credentials(
 def test_invalid_lists_are_rejected(tmp_path, session, page):
     session.request.side_effect = [create_response(), create_response(page)]
     with pytest.raises(ValueError, match="invalid"):
-        garmin.fetch_activities(tmp_path, 1)
+        garmin.fetch_activities(tmp_path)
     assert not list(tmp_path.iterdir())
 
 
@@ -132,7 +136,7 @@ def test_repeated_pages_fail_instead_of_looping(tmp_path, session, monkeypatch):
         create_response([{"activityId": 1}]),
     ]
     with pytest.raises(ValueError, match="repeated"):
-        garmin.fetch_activities(tmp_path, 2)
+        garmin.fetch_activities(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -151,7 +155,7 @@ def test_invalid_downloads_do_not_leave_a_completed_fit(tmp_path, session, conte
         create_response(content=content),
     ]
     with pytest.raises((ValueError, zipfile.BadZipFile)):
-        garmin.fetch_activities(tmp_path, 1)
+        garmin.fetch_activities(tmp_path)
     assert not (tmp_path / "1.fit").exists()
     assert not list(tmp_path.glob("*.part"))
 
@@ -163,7 +167,7 @@ def test_archive_paths_cannot_escape_directory(tmp_path, session):
         create_response({"activityId": 1}),
         create_response(content=create_archive("../../escape.fit")),
     ]
-    garmin.fetch_activities(tmp_path, 1)
+    garmin.fetch_activities(tmp_path)
     assert (tmp_path / "1.fit").is_file()
     assert not (tmp_path.parent / "escape.fit").exists()
 
@@ -171,21 +175,14 @@ def test_archive_paths_cannot_escape_directory(tmp_path, session):
 def test_timeout_fails_without_marking_import_complete(tmp_path, session, capsys):
     session.request.side_effect = requests.Timeout("request timed out")
     with pytest.raises(requests.Timeout):
-        garmin.fetch_activities(tmp_path, 1)
+        garmin.fetch_activities(tmp_path)
     assert "importing" not in capsys.readouterr().out
-
-
-@pytest.mark.parametrize("count", [0, -1, True, None])
-def test_invalid_counts_make_no_requests(tmp_path, session, count):
-    with pytest.raises(ValueError, match="count"):
-        garmin.fetch_activities(tmp_path, count)
-    session.request.assert_not_called()
 
 
 def test_missing_key_makes_no_requests(tmp_path, session, monkeypatch):
     monkeypatch.delenv("GARMIN_CONNECT")
     with pytest.raises(ValueError, match="GARMIN_CONNECT"):
-        garmin.fetch_activities(tmp_path, 1)
+        garmin.fetch_activities(tmp_path)
     session.request.assert_not_called()
 
 
@@ -196,15 +193,15 @@ def test_missing_key_makes_no_requests(tmp_path, session, monkeypatch):
 def test_real_downloader_against_postman_simulation(tmp_path, monkeypatch):
     monkeypatch.setattr(garmin, "BASE_URL", os.environ["GARMIN_SIMULATION_URL"])
     monkeypatch.setenv("GARMIN_CONNECT", "test-key")
-    garmin.fetch_activities(tmp_path, 2)
+    garmin.fetch_activities(tmp_path)
     assert len(list(tmp_path.iterdir())) == 3
     assert json.loads((tmp_path / "activity_123.json").read_text())["activityId"] == 123
     assert (tmp_path / "123.fit").read_bytes()[8:12] == b".FIT"
-    garmin.fetch_activities(tmp_path, 2)
+    garmin.fetch_activities(tmp_path)
     for key, status in [("revoked-key", 401), ("rate-limited-key", 429)]:
         monkeypatch.setenv("GARMIN_CONNECT", key)
         with pytest.raises(ValueError, match=f"HTTP {status}"):
-            garmin.fetch_activities(tmp_path, 2)
+            garmin.fetch_activities(tmp_path)
         assert len(list(tmp_path.iterdir())) == 3
 
 
@@ -214,7 +211,7 @@ def test_invalid_keys_are_rejected_without_echoing_value(
 ):
     monkeypatch.setenv("GARMIN_CONNECT", key)
     with pytest.raises(ValueError, match="without whitespace") as error:
-        garmin.fetch_activities(tmp_path, 1)
+        garmin.fetch_activities(tmp_path)
     assert key not in str(error.value)
     session.request.assert_not_called()
 
@@ -223,7 +220,7 @@ def test_invalid_keys_are_rejected_without_echoing_value(
 def test_invalid_token_fails_before_activity_download(tmp_path, session, token):
     session.request.return_value = create_response(text=token)
     with pytest.raises(ValueError, match="invalid access token"):
-        garmin.fetch_activities(tmp_path, 1)
+        garmin.fetch_activities(tmp_path)
     assert session.request.call_count == 1
 
 
@@ -235,5 +232,25 @@ def test_invalid_details_are_not_saved(tmp_path, session, details):
         create_response(details),
     ]
     with pytest.raises(ValueError, match="invalid activity details"):
-        garmin.fetch_activities(tmp_path, 1)
+        garmin.fetch_activities(tmp_path)
     assert not (tmp_path / "activity_details_1.json").exists()
+
+
+@pytest.mark.parametrize("today,expected", [
+    (date(2026, 11, 2), "2026-08-02"),
+    (date(2024, 5, 31), "2024-02-29"),
+    (date(2025, 1, 31), "2024-10-31"),
+])
+def test_search_uses_three_calendar_months(tmp_path, session, monkeypatch, today, expected):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls):
+            return datetime.combine(today, datetime.min.time()).astimezone()
+
+    monkeypatch.setattr(garmin, "datetime", FixedDateTime)
+    session.request.side_effect = [create_response(), create_response([])]
+    garmin.fetch_activities(tmp_path)
+    assert session.request.call_args.kwargs["params"] == {
+        "start": 0, "limit": garmin.PAGE_SIZE,
+        "startDate": expected, "endDate": today.isoformat(),
+    }

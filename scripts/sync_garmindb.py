@@ -368,19 +368,13 @@ def _sync_sqlite(working_directory: Path) -> None:
     target = Path(os.environ["GARMINDB_PATH"]).expanduser()
     config_directory = target.parent / "config"
     config = GarminConnectConfigManager(str(config_directory))
-    counts = config.config.get("data", {})
-    count = (
-        counts.get("download_latest_activities", 25)
-        if target.is_file()
-        else counts.get("download_all_activities", 1000)
-    )
     try:
-        fetch_activities(Path(config.get_activities_dir()), count)
+        fetch_activities(Path(config.get_activities_dir()))
     except (requests.RequestException, ValueError, OSError, BadZipFile) as error:
         _fail_sync(f"Personal API download failed: {error}")
     _run_garmindb(
         working_directory,
-        ["--config", str(config_directory), "--activities", "--import", "--latest"],
+        ["--config", str(config_directory), "--activities", "--import"],
     )
 
 

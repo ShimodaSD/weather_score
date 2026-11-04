@@ -33,6 +33,24 @@
               "format": "int32",
               "default": 99
             }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "description": "Inclusive earliest local activity date.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "description": "Inclusive latest local activity date.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
           }
         ],
         "responses": {
