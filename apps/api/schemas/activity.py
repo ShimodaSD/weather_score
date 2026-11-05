@@ -9,7 +9,9 @@ from pydantic import BaseModel, Field
 class GarminSyncProgress(BaseModel):
     """File transfer progress for the current process's Garmin sync."""
 
-    phase: Literal["idle", "checking", "downloading", "importing", "complete", "failed"] = "idle"
+    phase: Literal[
+        "idle", "checking", "downloading", "importing", "complete", "failed"
+    ] = "idle"
     downloaded_files: int = Field(default=0, ge=0)
     total_files: int | None = Field(default=None, ge=0)
 
@@ -127,3 +129,71 @@ class RunningPredictionsResponse(BaseModel):
     endurance_index: float | None = None
     basis: list[RunningPredictionBasis]
     predictions: list[RunningPrediction]
+
+
+class RunningImpactActivity(BaseModel):
+    """A recorded run and its estimated training impulse."""
+
+    activity_id: str = Field(
+        description="Garmin activity identifier.", examples=["12345"]
+    )
+    started_at: datetime = Field(description="Recorded start time.")
+    distance_km: float = Field(gt=0, description="Recorded distance in kilometres.")
+    moving_seconds: float = Field(gt=0, description="Moving time in seconds.")
+    relative_speed: float = Field(
+        gt=0, description="Average speed divided by the fitted crossover speed."
+    )
+    trimp: float = Field(
+        gt=0, description="Estimated training impulse points, not fitness gained."
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "activity_id": "12345",
+                    "started_at": "2026-09-24T06:00:00Z",
+                    "distance_km": 4.5,
+                    "moving_seconds": 1800,
+                    "relative_speed": 0.75,
+                    "trimp": 60.78,
+                }
+            ]
+        }
+    }
+
+
+class RunningImpactResponse(BaseModel):
+    """Study-based running training load and the model used to calculate it."""
+
+    model: RunningPredictionsResponse = Field(
+        description="Personal running model and its benchmark efforts."
+    )
+    coefficients: Literal["male", "female"] = Field(
+        description="The study's selected coefficient set."
+    )
+    activities: list[RunningImpactActivity] = Field(
+        description="Eligible runs in the model's 180-day window; empty if no personal model can be fitted."
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "model": {
+                        "run_count": 0,
+                        "longest_run_km": None,
+                        "season_start_at": None,
+                        "season_end_at": None,
+                        "model_status": "no_benchmark",
+                        "vm_mps": None,
+                        "endurance_index": None,
+                        "basis": [],
+                        "predictions": [],
+                    },
+                    "coefficients": "male",
+                    "activities": [],
+                }
+            ]
+        }
+    }

@@ -2,11 +2,12 @@
 
 from collections.abc import AsyncIterator
 from datetime import date, datetime, time, timedelta
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from psycopg.errors import UndefinedTable
 lazy from psycopg.rows import dict_row
+lazy from weather_score.application.running_impact import calculate_running_impact
 lazy from weather_score.application.running_predictions import (
     calculate_running_predictions,
 )
@@ -23,6 +24,7 @@ try:
         ActivityResponse,
         ActivityTssResponse,
         GarminSyncProgress,
+        RunningImpactResponse,
         RunningPredictionsResponse,
         WeeklyTrainingResponse,
         WeeklyTssResponse,
@@ -45,6 +47,7 @@ except ImportError:
         ActivityResponse,
         ActivityTssResponse,
         GarminSyncProgress,
+        RunningImpactResponse,
         RunningPredictionsResponse,
         WeeklyTrainingResponse,
         WeeklyTssResponse,
@@ -319,6 +322,23 @@ async def sync_garmin_activities() -> dict[str, int]:
 async def get_running_predictions() -> dict[str, object]:
     """Predict 5, 10, 21, and 42 km moving times from recorded runs."""
     return calculate_running_predictions(await fetch_running_prediction_inputs())
+
+
+@router.get(
+    "/running/impact",
+    response_model=RunningImpactResponse,
+    summary="Review running training load",
+)
+async def get_running_impact(
+    coefficients: Annotated[
+        Literal["male", "female"],
+        Query(description="Sex-specific coefficient set reported in the study."),
+    ],
+) -> dict[str, object]:
+    """Calculate per-run training impulse, an estimate of load rather than fitness gained."""
+    return calculate_running_impact(
+        await fetch_running_prediction_inputs(), coefficients
+    )
 
 
 @router.post(

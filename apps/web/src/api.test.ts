@@ -18,6 +18,12 @@ test('run forecast returns daily scores and supports location disambiguation', a
   assert.deepEqual(await fetchRunForecast('/api', 'São Paulo'), [{ date: '2026-11-03', score: 88 }])
   mock.mock.mockImplementation(async () => new Response(JSON.stringify({ options: [{ name: 'A', latitude: '1', longitude: '2' }] })))
   assert.deepEqual(await fetchRunForecast('/api', 'A'), [{ name: 'A', latitude: '1', longitude: '2' }])
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify({ detail: 'Could not retrieve coordinates.' }), { status: 502 }))
+  await assert.rejects(fetchRunForecast('/api', 'A'), /Location search is temporarily unavailable/)
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify({ error: 'Could not retrieve latitude and longitude for the given address.' })))
+  await assert.rejects(fetchRunForecast('/api', 'A'), /No matching location found/)
+  mock.mock.mockImplementation(async () => new Response(JSON.stringify({ detail: 'Could not retrieve weather data.' }), { status: 502 }))
+  await assert.rejects(fetchRunForecast('/api', 'A'), /training forecast is unavailable/)
 })
 
 test('weekly TSS uses local calendar date and validates partial, empty and failed totals', async (t) => {

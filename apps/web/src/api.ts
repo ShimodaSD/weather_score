@@ -441,10 +441,23 @@ export async function fetchRunForecast(baseUrl: string, address: string, locatio
   const query = new URLSearchParams({ address: address.trim() })
   if (location) { query.set('latitude', location.latitude); query.set('longitude', location.longitude) }
   const response = await fetch(`${base(baseUrl)}/score/run/forecast?${query}`, { signal: AbortSignal.timeout(30_000) })
-  if (!response.ok) throw new Error('The training forecast is unavailable right now. Please try again shortly.')
+  if (!response.ok) {
+    const failure: unknown = await response.json().catch(() => null)
+    if (response.status === 502 && isRecord(failure) && failure.detail === 'Could not retrieve coordinates.') throw new Error('Location search is temporarily unavailable. Please try again or use your current location.')
+    throw new Error('The training forecast is unavailable right now. Please try again shortly.')
+  }
   const data: unknown = await response.json().catch(() => null)
   const dayNumbers = ['score', 'temperature_c', 'humidity_percent', 'precipitation_mm', 'wind_gust_kph', 'altitude_m', 'temperature_penalty', 'wind_penalty', 'humidity_penalty', 'altitude_penalty', 'precipitation_penalty']
   if (Array.isArray(data) && data.every((item) => isRecord(item) && typeof item.date === 'string' && Number.isFinite(Date.parse(item.date)) && typeof item.score === 'number' && Number.isFinite(item.score) && dayNumbers.every((key) => item[key] === undefined || typeof item[key] === 'number' && Number.isFinite(item[key])))) return data as TrainingDay[]
   if (isRecord(data) && Array.isArray(data.options) && data.options.every((item) => isRecord(item) && typeof item.name === 'string' && typeof item.latitude === 'string' && typeof item.longitude === 'string')) return data.options as LocationOption[]
+  if (isRecord(data) && data.error === 'Could not retrieve latitude and longitude for the given address.') throw new Error('No matching location found. Try adding a city or country.')
   throw new Error('The service returned an unexpected forecast response.')
+}
+
+export type RunningImpact = { model: RunningPredictions; coefficients: 'male' | 'female'; activities: { activity_id: string; started_at: string; distance_km: number; moving_seconds: number; relative_speed: number; trimp: number }[] }
+
+export async function fetchRunningImpact(baseUrl: string, token: string, coefficients: 'male' | 'female'): Promise<RunningImpact> {
+  const data = await fetchActivityJson(baseUrl, `/activities/running/impact?coefficients=${coefficients}`, token)
+  if (!isRecord(data) || !isRecord(data.model) || !['fitted', 'range', 'no_benchmark'].includes(String(data.model.model_status)) || !(data.model.vm_mps === null || typeof data.model.vm_mps === 'number' && Number.isFinite(data.model.vm_mps) && data.model.vm_mps > 0) || data.coefficients !== coefficients || !Array.isArray(data.activities) || !data.activities.every((item) => isRecord(item) && typeof item.activity_id === 'string' && typeof item.started_at === 'string' && Number.isFinite(Date.parse(item.started_at)) && ['distance_km', 'moving_seconds', 'relative_speed', 'trimp'].every((key) => typeof item[key] === 'number' && Number.isFinite(item[key]) && item[key] > 0))) throw new Error('The service returned an unexpected running impact response.')
+  return data as RunningImpact
 }
