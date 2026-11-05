@@ -142,7 +142,7 @@ the frontend `pnpm test` command.
 Dashboard sync and grade interactions are checked by
 `apps/web/tests/activities.browser.cjs`; see `apps/web/README.md` for the
 development-server and existing Playwright requirements.
-Both **Get new data** buttons poll protected `GET /activities/sync/status`
+All **Get new data** buttons poll protected `GET /activities/sync/status`
 on page entry, every 30 seconds while idle, and every two seconds after a sync
 is detected for live downloaded/total file counts and
 the download/import phase, including syncs already running after navigation. Progress
@@ -255,3 +255,5 @@ as well as correctness:
 - Do not claim an implementation is the fastest without benchmark evidence.
   Avoid speculative optimizations and dependencies without a demonstrated need.
 
+
+The `#impact` page includes Garmin sync with progress and reviews study-based running TRIMP using protected `GET /activities/running/impact?coefficients=male|female`. Its calculation is in `src/weather_score/application/running_impact.py`, with assumptions documented in `docs/running-impact.md` and tests in `tests/scores/test_running_impact.py`. It reports training load, not fitness gained.

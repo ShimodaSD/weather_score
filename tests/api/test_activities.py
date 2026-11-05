@@ -286,12 +286,24 @@ def test_sync_status_reports_only_counters(monkeypatch):
     from apps.api.schemas.activity import GarminSyncProgress
 
     monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
-    monkeypatch.setattr(garmin, "get_sync_progress", lambda: GarminSyncProgress(
-        phase="downloading", downloaded_files=2, total_files=6,
-    ))
-    response = client.get("/activities/sync/status", headers={"Authorization": "Bearer token"})
+    monkeypatch.setattr(
+        garmin,
+        "get_sync_progress",
+        lambda: GarminSyncProgress(
+            phase="downloading",
+            downloaded_files=2,
+            total_files=6,
+        ),
+    )
+    response = client.get(
+        "/activities/sync/status", headers={"Authorization": "Bearer token"}
+    )
     assert response.status_code == 200
-    assert response.json() == {"phase": "downloading", "downloaded_files": 2, "total_files": 6}
+    assert response.json() == {
+        "phase": "downloading",
+        "downloaded_files": 2,
+        "total_files": 6,
+    }
 
 
 def test_syncs_and_reports_new_garmin_activities(monkeypatch):
@@ -535,3 +547,40 @@ def test_first_sync_initializes_missing_activity_table(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {"new_activities": 1, "total_activities": 1}
     sync.assert_awaited_once_with()
+
+
+def test_running_impact_requires_auth_and_valid_coefficients(monkeypatch):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    fetch = AsyncMock(return_value=[])
+    monkeypatch.setattr(garmin, "fetch_running_prediction_inputs", fetch)
+    assert client.get("/activities/running/impact?coefficients=male").status_code == 401
+    headers = {"Authorization": "Bearer token"}
+    assert (
+        client.get(
+            "/activities/running/impact?coefficients=other", headers=headers
+        ).status_code
+        == 422
+    )
+    response = client.get(
+        "/activities/running/impact?coefficients=female", headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["activities"] == []
+    assert response.json()["coefficients"] == "female"
+    fetch.assert_awaited_once_with()
+
+
+def test_running_impact_openapi_documents_response_model():
+    schema = client.get("/openapi.json").json()
+    operation = schema["paths"]["/activities/running/impact"]["get"]
+    response = operation["responses"]["200"]["content"]["application/json"]["schema"]
+    assert response["$ref"].endswith("/RunningImpactResponse")
+    models = schema["components"]["schemas"]
+    assert (
+        models["RunningImpactResponse"]["examples"][0]["model"]["model_status"]
+        == "no_benchmark"
+    )
+    assert (
+        "not fitness gained"
+        in models["RunningImpactActivity"]["properties"]["trimp"]["description"]
+    )

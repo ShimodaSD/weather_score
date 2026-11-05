@@ -28,6 +28,7 @@ async function main() {
       const path = new URL(route.request().url()).pathname
       let data
       if (path.endsWith('/session')) data = { authenticated: true }
+      else if (path.endsWith('/activities/running/impact')) data = { model: { model_status: 'no_benchmark', vm_mps: null, run_count: 0, season_end_at: null }, coefficients: new URL(route.request().url()).searchParams.get('coefficients'), activities: [] }
       else if (path.endsWith('/activities/sync/status')) { progressRequests++; data = downloadProgress }
       else if (path.endsWith('/activities/sync')) {
         assert.equal(route.request().method(), 'POST')
@@ -285,7 +286,16 @@ async function main() {
     assert.equal(await heartRate.isChecked(), false)
     await page.keyboard.press('Space')
     assert.equal(await heartRate.isChecked(), true)
-    console.log('Activities sync, grade polling, keyboard navigation, responsive and chart checks passed.')
+    await page.goto(`${process.env.WEB_URL || 'http://localhost:8001'}/#impact`)
+    await page.getByRole('heading', { name: 'Personal model unavailable' }).waitFor()
+    await page.getByRole('button', { name: 'Get new data' }).click()
+    await page.getByRole('button', { name: 'Syncing…' }).waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Syncing…' }).isDisabled(), true)
+    const impactRefresh = page.waitForResponse('**/activities/running/impact?*')
+    releaseSync()
+    await impactRefresh
+    await page.getByText('1 new Garmin activity imported.').waitFor()
+    console.log('Activities sync, impact sync, grade polling, keyboard navigation, responsive and chart checks passed.')
   } finally { await browser.close() }
 }
 
