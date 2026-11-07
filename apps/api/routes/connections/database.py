@@ -27,7 +27,7 @@ def _database_url(database_name: str) -> str:
         raise ValueError("Invalid database configuration. Missing database name.")
 
     return make_conninfo(
-        host=host, port=port, user=os.environ.get("DB_USER", "postgres"),
+        host=host, port=port, user=os.environ.get("DB_USER") or "postgres",
         password=password, dbname=name,
     )
 

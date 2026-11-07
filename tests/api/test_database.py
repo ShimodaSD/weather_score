@@ -1,6 +1,9 @@
 import importlib
 import os
+import runpy
+from pathlib import Path
 
+import pytest
 from psycopg.conninfo import conninfo_to_dict
 
 os.environ.setdefault("DB_PASSWORD", "test")
@@ -9,6 +12,16 @@ os.environ.setdefault("DB_PORT", "5432")
 os.environ.setdefault("DB_NAME", "shared")
 
 database = importlib.import_module("apps.api.routes.connections.database")
+
+
+@pytest.mark.parametrize("username,expected", [("", "postgres"), ("postgres.project", "postgres.project")])
+def test_connection_builders_handle_blank_and_explicit_users(monkeypatch, username, expected):
+    monkeypatch.setenv("DB_USER", username)
+    main_database = runpy.run_path(str(Path(__file__).parents[2] / "apps/api/database.py"))
+
+    assert conninfo_to_dict(main_database["DATABASE_URL"])["user"] == expected
+    for name in ("weatherapi", "garmin"):
+        assert conninfo_to_dict(database._database_url(name))["user"] == expected
 
 
 def test_database_pools_fall_back_to_shared_name(monkeypatch):
