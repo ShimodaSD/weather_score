@@ -156,6 +156,10 @@ async def sync_activities() -> int:
                 )
                 """
             )
+            if os.environ.get("DB_SHARED_GARMIN") == "1":
+                await cursor.execute(
+                    "ALTER TABLE public.garmin_activities ENABLE ROW LEVEL SECURITY"
+                )
             phase = "reading GarminDB"
             while activities := await asyncio.to_thread(
                 source_cursor.fetchmany, BATCH_SIZE

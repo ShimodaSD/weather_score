@@ -1,10 +1,17 @@
 import os
 
 from dotenv import load_dotenv
+from psycopg.conninfo import make_conninfo
 from psycopg_pool import AsyncConnectionPool
 
 load_dotenv()
 
-DATABASE_URL = f"postgresql://postgres:{os.environ.get('DB_PASSWORD')}@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}"
+DATABASE_URL = make_conninfo(
+    host=os.environ["DB_HOST"],
+    port=os.environ["DB_PORT"],
+    user=os.environ.get("DB_USER", "postgres"),
+    password=os.environ.get("DB_PASSWORD", ""),
+    dbname=os.environ["DB_NAME"],
+)
 
 pool = AsyncConnectionPool(conninfo=DATABASE_URL, open=False)

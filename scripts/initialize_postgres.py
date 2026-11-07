@@ -9,7 +9,7 @@ import psycopg
 def initialize_databases() -> None:
     """Apply schema-only snapshots transactionally, preserving existing data."""
     names = [os.environ["DB_NAME"], os.environ["DB_NAME_GARMIN"]]
-    if names[0] == names[1]:
+    if names[0] == names[1] and os.environ.get("DB_SHARED_GARMIN") != "1":
         raise ValueError("DB_NAME_GARMIN must differ from DB_NAME")
     directory = Path(__file__).resolve().parents[1] / "apps" / "api" / "sql"
     for schema, name in zip(("application", "garmin"), names, strict=True):
@@ -22,6 +22,9 @@ def initialize_databases() -> None:
         ) as connection:
             connection.execute("SELECT pg_advisory_xact_lock(8730241)")
             connection.execute((directory / f"{schema}.sql").read_text())
+            if schema == "application" and os.environ.get("DB_SHARED_GARMIN") == "1":
+                connection.execute("ALTER TABLE public.activity_grades ENABLE ROW LEVEL SECURITY")
+                connection.execute("ALTER TABLE public.athlete_profile ENABLE ROW LEVEL SECURITY")
         print(f"postgres-init: {schema} tables ready", flush=True)
 
 

@@ -127,6 +127,24 @@ def test_postgres_reuses_weather_connection_settings(monkeypatch) -> None:
     }
 
 
+def test_shared_database_sync_never_creates_a_database(monkeypatch):
+    monkeypatch.setenv("DB_NAME", "shared")
+    monkeypatch.setenv("DB_SHARED_GARMIN", "1")
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value = [("garmin",), ("garmin_activities",), ("garmin_monitoring",)]
+    connect = MagicMock(return_value=connection)
+    monkeypatch.setattr(sync_garmindb.psycopg, "connect", connect)
+    monkeypatch.setattr(sync_garmindb, "_get_postgres_parameters", lambda _: {})
+    initialize = MagicMock()
+    monkeypatch.setattr(sync_garmindb, "_initialize_postgres_tables", initialize)
+
+    assert sync_garmindb._prepare_postgres_database("shared") is False
+    assert connect.call_count == 1
+    assert "CREATE DATABASE" not in connection.execute.call_args.args[0]
+    initialize.assert_called_once_with("shared")
+
+
 @pytest.mark.parametrize("activities", ["garmin_activities.activities", None])
 def test_startup_sync_detects_missing_activities_table(monkeypatch, activities) -> None:
     monkeypatch.setenv("DB_NAME", "weather")
