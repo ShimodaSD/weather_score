@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 import pytest
+
 from weather_score.application.main import (
     calculate_activity_score,
     calculate_activity_score_breakdown,

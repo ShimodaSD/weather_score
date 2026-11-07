@@ -1,4 +1,5 @@
 import pytest
+
 from weather_score.application.training_stress import (
     calculate_activity_tss,
     calculate_tss_total,

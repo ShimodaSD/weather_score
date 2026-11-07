@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+
 from weather_score.weather.providers.weather_api import HistoricalConditions
 
 os.environ.setdefault("DB_PASSWORD", "test")
@@ -41,11 +42,16 @@ async def test_grade_schema_upgrades_run_during_initialization_only(monkeypatch)
     pool.connection.return_value.__aenter__ = AsyncMock(return_value=connection)
     monkeypatch.setattr(activity_grades, "pool", pool)
     await activity_grades.initialize_activity_grades()
-    assert [call.args[0] for call in cursor.execute.await_args_list] == [
+    assert [call.args[0] for call in cursor.execute.await_args_list[:3]] == [
         activity_grades.CREATE_ACTIVITY_GRADES,
         activity_grades.ALTER_ACTIVITY_GRADES,
         activity_grades.UPGRADE_ACTIVITY_GRADES,
     ]
+    assert cursor.execute.await_count == 4
+    recovery_sql = cursor.execute.await_args_list[3].args[0]
+    assert "status = 'failed'" in recovery_sql
+    assert "WHERE status = 'processing'" in recovery_sql
+    assert "Please try again" in recovery_sql
     cursor.reset_mock()
     assert await activity_grades.fetch_activity_grades() == []
     cursor.execute.assert_awaited_once_with(
@@ -78,6 +84,41 @@ def test_starts_grade_with_200_and_runs_background_processing(monkeypatch):
     assert response.json()["status"] == "processing"
     queue.assert_awaited_once_with("123")
     process.assert_awaited_once_with("123")
+
+
+def test_duplicate_grade_is_rejected_without_starting_another_task(monkeypatch):
+    monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
+    monkeypatch.setattr(
+        garmin,
+        "fetch_activity_summary",
+        AsyncMock(return_value={"activity_id": "123", "activity_type": "running"}),
+    )
+    monkeypatch.setattr(garmin, "queue_activity_grade", AsyncMock(return_value=None))
+    process = AsyncMock()
+    monkeypatch.setattr(garmin, "process_activity_grade", process)
+
+    response = client.post(
+        "/activities/123/grade", headers={"Authorization": "Bearer token"}
+    )
+
+    assert response.status_code == 409
+    process.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_queue_grade_only_replaces_a_finished_grade(monkeypatch):
+    cursor = AsyncMock()
+    cursor.fetchone.return_value = None
+    connection = MagicMock()
+    connection.cursor.return_value.__aenter__ = AsyncMock(return_value=cursor)
+    pool = MagicMock()
+    pool.connection.return_value.__aenter__ = AsyncMock(return_value=connection)
+    monkeypatch.setattr(activity_grades, "pool", pool)
+
+    assert await activity_grades.queue_activity_grade("123") is None
+    sql, parameters = cursor.execute.await_args.args
+    assert "WHERE activity_grades.status <> 'processing'" in sql
+    assert parameters == ("123",)
 
 
 def test_lists_persisted_activity_grades(monkeypatch):

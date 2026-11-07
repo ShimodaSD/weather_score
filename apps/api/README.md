@@ -31,6 +31,9 @@ and [Garmin setup](../../docs/garmin-sync.md).
 
 API startup initializes the athlete profile and upgrades activity-grade storage
 once per process. Requests no longer run these schema and data setup statements.
+With the supported single API process, startup marks interrupted grades as failed
+so they can be retried. Running multiple API processes requires shared job
+ownership and recovery before enabling this behavior.
 
 The unused `GET /address-to-lat-long`, `GET /score/run/by-type`, and
 `GET /activities` routes have been removed. Geocoding remains part of both

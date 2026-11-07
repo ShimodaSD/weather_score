@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from psycopg.errors import UndefinedTable
 lazy from psycopg.rows import dict_row
+
 lazy from weather_score.application.running_impact import calculate_running_impact
 lazy from weather_score.application.running_predictions import (
     calculate_running_predictions,
@@ -40,7 +41,6 @@ try:
     from ..services.profile import fetch_profile
     from .connections.database import garmin_pool
 except ImportError:
-    from routes.connections.database import garmin_pool
     from schemas.activity import (
         ActivityDetailResponse,
         ActivityIndexResponse,
@@ -61,6 +61,8 @@ except ImportError:
     )
     from services.garmin import get_sync_progress, run_garmindb_sync
     from services.profile import fetch_profile
+
+    from routes.connections.database import garmin_pool
 
 
 async def require_activity_database() -> AsyncIterator[None]:
@@ -358,6 +360,8 @@ async def start_activity_grade(
             status_code=422, detail="Only running activities can be graded."
         )
     grade = await queue_activity_grade(activity_id)
+    if grade is None:
+        raise HTTPException(status_code=409, detail="Activity grading is already running.")
     background_tasks.add_task(process_activity_grade, activity_id)
     return grade
 

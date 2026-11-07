@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+
 from scripts import initialize_postgres
 
 

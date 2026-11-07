@@ -6,6 +6,7 @@ from dataclasses import asdict
 
 lazy from psycopg.rows import dict_row
 lazy from psycopg.types.json import Jsonb
+
 lazy from weather_score.application.activity_grade import (
     build_activity_segments,
     calculate_headwind_component,
@@ -57,9 +58,17 @@ async def initialize_activity_grades() -> None:
         await cursor.execute(CREATE_ACTIVITY_GRADES)
         await cursor.execute(ALTER_ACTIVITY_GRADES)
         await cursor.execute(UPGRADE_ACTIVITY_GRADES)
+        await cursor.execute(
+            """
+            UPDATE activity_grades SET status = 'failed',
+                error = 'Grading was interrupted. Please try again.',
+                updated_at = now(), completed_at = now()
+            WHERE status = 'processing'
+            """
+        )
 
 
-async def queue_activity_grade(activity_id: str) -> dict[str, object]:
+async def queue_activity_grade(activity_id: str) -> dict[str, object] | None:
     """Create or reset the persisted processing state for an activity."""
     async with (
         pool.connection() as connection,
@@ -73,6 +82,7 @@ async def queue_activity_grade(activity_id: str) -> dict[str, object]:
                 status = 'processing', score = NULL, segments = '[]'::jsonb,
                 error = NULL, updated_at = now(), completed_at = NULL
                 , calculation_version = 4
+            WHERE activity_grades.status <> 'processing'
             RETURNING *
             """,
             (activity_id,),

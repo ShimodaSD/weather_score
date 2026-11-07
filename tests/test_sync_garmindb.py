@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import psycopg
 import pytest
+
 from scripts import sync_garmindb
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "sync_garmindb.py"
@@ -62,6 +63,7 @@ def test_bootstraps_existing_sqlite_history(tmp_path):
 
 def test_sqlite_uses_api_download_then_import_only(tmp_path, monkeypatch):
     import garmindb
+
     import weather_score.garmin as personal_api
 
     target = tmp_path / "HealthData/DBs/garmin_activities.db"
