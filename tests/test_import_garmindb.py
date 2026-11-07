@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+
 from scripts.import_garmindb import import_activity_json
 
 

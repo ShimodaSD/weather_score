@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 import requests
+
 from weather_score.weather.providers import openmeteo
 
 

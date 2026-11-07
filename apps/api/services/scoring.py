@@ -7,6 +7,7 @@ from numbers import Real
 
 lazy import requests
 lazy from fastapi import HTTPException, status
+
 lazy from weather_score.application.main import (
     calculate_activity_score,
     calculate_activity_score_breakdown,
@@ -33,6 +34,7 @@ except ImportError:
         ErrorResponse,
         LocationOptionsResponse,
     )
+
     from services.geocoding import geocode_address
 
 

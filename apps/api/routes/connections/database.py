@@ -1,8 +1,8 @@
 import os
-from urllib.parse import quote_plus
 
 from dotenv import find_dotenv, load_dotenv
 from psycopg import AsyncConnection
+from psycopg.conninfo import make_conninfo
 from psycopg.rows import TupleRow
 from psycopg_pool import AsyncConnectionPool
 
@@ -26,7 +26,10 @@ def _database_url(database_name: str) -> str:
     if not name:
         raise ValueError("Invalid database configuration. Missing database name.")
 
-    return f"postgresql://postgres:{quote_plus(password)}@{host}:{port}/{name}"
+    return make_conninfo(
+        host=host, port=port, user=os.environ.get("DB_USER") or "postgres",
+        password=password, dbname=name,
+    )
 
 
 weatherapi_pool: Pool = AsyncConnectionPool(

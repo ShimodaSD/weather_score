@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+
 from apps.api.services.garmin import (
     _activity_id,
     _open_activities,

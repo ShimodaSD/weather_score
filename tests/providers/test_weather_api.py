@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+
 from weather_score.weather.providers import weather_api
 
 

@@ -1,0 +1,17 @@
+services:
+  postgres:
+    profiles: [local]
+  backend:
+    env_file: !override
+      - .env
+      - .env.supabase
+    environment:
+      DB_HOST: !reset null
+      DB_PORT: !reset null
+      DB_USER: !reset null
+      DB_SHARED_GARMIN: "1"
+      PGSSLMODE: verify-full
+      PGSSLROOTCERT: /run/supabase-ca.crt
+    depends_on: !reset {}
+    volumes:
+      - ./workspace/supabase/ca.crt:/run/supabase-ca.crt:ro

@@ -193,4 +193,7 @@ workspace/docker/
 workspace/garmin/
 GarminConnectConfig.json
 workspace/postgres/
+workspace/backups/
+workspace/supabase/
+.env.supabase
 

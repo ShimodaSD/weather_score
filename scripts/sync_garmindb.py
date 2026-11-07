@@ -9,9 +9,11 @@ import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Never
+from urllib.parse import quote
 
 import psycopg
 from psycopg import sql
+
 from weather_score.application.training_stress import calculate_activity_tss
 
 
@@ -148,18 +150,20 @@ def _prepare_postgres_database(database_name: str) -> bool:
     weather_database = os.environ.get("DB_NAME")
     if not weather_database:
         _fail_sync("missing PostgreSQL setting: DB_NAME")
-    if database_name == weather_database:
+    shared = database_name == weather_database
+    if shared and os.environ.get("DB_SHARED_GARMIN") != "1":
         _fail_sync("DB_NAME_GARMIN must differ from DB_NAME")
     admin_parameters = _get_postgres_parameters(weather_database)
     try:
-        with psycopg.connect(**admin_parameters, autocommit=True) as connection:
-            exists = connection.execute(
-                "SELECT 1 FROM pg_database WHERE datname = %s", (database_name,)
-            ).fetchone()
-            if not exists:
-                connection.execute(
-                    sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name))
-                )
+        if not shared:
+            with psycopg.connect(**admin_parameters, autocommit=True) as connection:
+                exists = connection.execute(
+                    "SELECT 1 FROM pg_database WHERE datname = %s", (database_name,)
+                ).fetchone()
+                if not exists:
+                    connection.execute(
+                        sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name))
+                    )
         with psycopg.connect(**_get_postgres_parameters(database_name)) as connection:
             schemas = {
                 row[0]
@@ -191,8 +195,8 @@ def _initialize_postgres_tables(database_name: str) -> None:
     parameters = _get_postgres_parameters(database_name)
     db_params = DbParams(
         db_type="postgresql",
-        db_username=parameters["user"],
-        db_password=parameters["password"],
+        db_username=quote(parameters["user"], safe=""),
+        db_password=quote(parameters["password"], safe=""),
         db_host=parameters["host"],
         db_port=int(parameters["port"]),
         pg_database=database_name,
@@ -247,8 +251,8 @@ def _import_postgres(
     parameters = _get_postgres_parameters(database_name)
     postgres_config["db"] = {
         "type": "postgresql",
-        "user": parameters["user"],
-        "password": parameters["password"],
+        "user": quote(parameters["user"], safe=""),
+        "password": quote(parameters["password"], safe=""),
         "host": parameters["host"],
         "port": int(parameters["port"]),
         "database": database_name,
@@ -363,6 +367,7 @@ def _sync_sqlite(working_directory: Path) -> None:
 
     import requests
     from garmindb import GarminConnectConfigManager
+
     from weather_score.garmin import fetch_activities
 
     target = Path(os.environ["GARMINDB_PATH"]).expanduser()

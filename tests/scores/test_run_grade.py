@@ -1,4 +1,5 @@
 import pytest
+
 from weather_score.application.run_grade import calculate_run_grade
 
 

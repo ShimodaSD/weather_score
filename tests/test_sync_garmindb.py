@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import psycopg
 import pytest
+
 from scripts import sync_garmindb
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "sync_garmindb.py"
@@ -62,6 +63,7 @@ def test_bootstraps_existing_sqlite_history(tmp_path):
 
 def test_sqlite_uses_api_download_then_import_only(tmp_path, monkeypatch):
     import garmindb
+
     import weather_score.garmin as personal_api
 
     target = tmp_path / "HealthData/DBs/garmin_activities.db"
@@ -123,6 +125,24 @@ def test_postgres_reuses_weather_connection_settings(monkeypatch) -> None:
         "port": "5432",
         "dbname": "garmin",
     }
+
+
+def test_shared_database_sync_never_creates_a_database(monkeypatch):
+    monkeypatch.setenv("DB_NAME", "shared")
+    monkeypatch.setenv("DB_SHARED_GARMIN", "1")
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value = [("garmin",), ("garmin_activities",), ("garmin_monitoring",)]
+    connect = MagicMock(return_value=connection)
+    monkeypatch.setattr(sync_garmindb.psycopg, "connect", connect)
+    monkeypatch.setattr(sync_garmindb, "_get_postgres_parameters", lambda _: {})
+    initialize = MagicMock()
+    monkeypatch.setattr(sync_garmindb, "_initialize_postgres_tables", initialize)
+
+    assert sync_garmindb._prepare_postgres_database("shared") is False
+    assert connect.call_count == 1
+    assert "CREATE DATABASE" not in connection.execute.call_args.args[0]
+    initialize.assert_called_once_with("shared")
 
 
 @pytest.mark.parametrize("activities", ["garmin_activities.activities", None])

@@ -1,6 +1,7 @@
 import tarfile
 
 import pytest
+
 from scripts.backup_garmin_archive import backup_activities
 
 

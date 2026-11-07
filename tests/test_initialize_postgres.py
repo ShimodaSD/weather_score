@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+
 from scripts import initialize_postgres
 
 
@@ -43,3 +44,20 @@ def test_rejects_shared_application_and_garmin_database(monkeypatch):
         initialize_postgres.initialize_databases()
 
     connect.assert_not_called()
+
+
+def test_shared_database_requires_explicit_opt_in(monkeypatch):
+    for key, value in {
+        "DB_NAME": "shared", "DB_NAME_GARMIN": "shared", "DB_SHARED_GARMIN": "1",
+        "DB_HOST": "localhost", "DB_PORT": "5432", "DB_PASSWORD": "test",
+    }.items():
+        monkeypatch.setenv(key, value)
+    connect = MagicMock()
+    monkeypatch.setattr(initialize_postgres.psycopg, "connect", connect)
+
+    initialize_postgres.initialize_databases()
+
+    assert [call.kwargs["dbname"] for call in connect.call_args_list] == ["shared", "shared"]
+    statements = [call.args[0] for call in connect.return_value.__enter__.return_value.execute.call_args_list]
+    assert "ALTER TABLE public.activity_grades ENABLE ROW LEVEL SECURITY" in statements
+    assert "ALTER TABLE public.athlete_profile ENABLE ROW LEVEL SECURITY" in statements

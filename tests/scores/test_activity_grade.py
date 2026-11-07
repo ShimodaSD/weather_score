@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+
 from weather_score.application.activity_grade import (
     build_activity_segments,
     calculate_headwind_component,
