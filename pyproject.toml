@@ -15,7 +15,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-garmin = ["GarminDb==3.9.0", "psycopg2-binary>=2.9.10"]
+garmin = [
+    "fitfile==1.2.0",
+    "garmin-fit-sdk==21.221.0",
+    "GarminDb==3.9.0",
+    "psycopg2-binary>=2.9.10",
+]
 
 [build-system]
 requires = ["hatchling"]

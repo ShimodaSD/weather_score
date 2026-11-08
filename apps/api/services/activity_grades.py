@@ -75,6 +75,10 @@ async def queue_activity_grade(activity_id: str) -> dict[str, object] | None:
         connection.cursor(row_factory=dict_row) as cursor,
     ):
         await cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended('weather-grade:' || %s, 0))",
+            (activity_id,),
+        )
+        await cursor.execute(
             """
             INSERT INTO activity_grades (activity_id, status, calculation_version)
             VALUES (%s, 'processing', 4)

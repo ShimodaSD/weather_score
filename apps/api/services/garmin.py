@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import signal
 import sqlite3
 from pathlib import Path
 
@@ -20,6 +21,7 @@ lazy from psycopg.types.json import Jsonb
 lazy from psycopg_pool import PoolClosed, PoolTimeout
 
 BATCH_SIZE = 1000
+GARMIN_SYNC_TIMEOUT_SECONDS = 1800
 logger = logging.getLogger(__name__)
 _garmindb_sync_lock = asyncio.Lock()
 _sync_progress = GarminSyncProgress()
@@ -72,10 +74,15 @@ async def run_garmindb_sync() -> None:
         _sync_progress = GarminSyncProgress(phase="checking")
         root = Path(__file__).parents[3]
         try:
+            environment = os.environ.copy()
+            if not environment.get("GARMIN_CONNECT", "").strip() and environment.get("GARMIN_CONNECT_FILE"):
+                environment["GARMIN_CONNECT"] = Path(environment["GARMIN_CONNECT_FILE"]).read_text().strip()
             process = await asyncio.create_subprocess_exec(
                 "make",
                 "garmin-sync",
                 cwd=root,
+                env=environment,
+                **({"start_new_session": True} if os.name == "posix" else {}),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
@@ -108,9 +115,15 @@ async def run_garmindb_sync() -> None:
             await process.wait()
 
         try:
-            await asyncio.wait_for(read_output(), timeout=600)
+            await asyncio.wait_for(read_output(), timeout=GARMIN_SYNC_TIMEOUT_SECONDS)
         except TimeoutError as error:
-            process.kill()
+            try:
+                if os.name == "posix":
+                    os.killpg(process.pid, signal.SIGKILL)
+                else:
+                    process.kill()
+            except ProcessLookupError:
+                pass
             await process.communicate()
             _sync_progress.phase = "failed"
             raise HTTPException(

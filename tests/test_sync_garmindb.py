@@ -12,6 +12,61 @@ from scripts import sync_garmindb
 SCRIPT = Path(__file__).parents[1] / "scripts" / "sync_garmindb.py"
 
 
+def test_direct_mode_dispatches_without_enabling_it_by_default(tmp_path, monkeypatch):
+    target = tmp_path / "garmin_activities.db"
+    monkeypatch.setenv("GARMIN_IMPORTER", "direct")
+    monkeypatch.setenv("GARMINDB_PATH", str(target))
+    monkeypatch.setenv("DB_NAME_GARMIN", "test")
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT)])
+    direct = MagicMock()
+    monkeypatch.setattr(sync_garmindb, "_sync_direct", direct)
+    sync_garmindb.main()
+    direct.assert_called_once_with(target, "test")
+
+
+def test_direct_mode_rejects_separate_grade_database(tmp_path, monkeypatch):
+    monkeypatch.setenv("DB_NAME", "application")
+    monkeypatch.setenv("DB_SHARED_GARMIN", "1")
+    with pytest.raises(SystemExit, match="same database"):
+        sync_garmindb._sync_direct(tmp_path / "garmin_activities.db", "garmin")
+
+
+def test_unrecognized_importer_is_rejected(monkeypatch):
+    monkeypatch.setenv("GARMIN_IMPORTER", "unexpected")
+    with pytest.raises(SystemExit, match="GARMIN_IMPORTER"):
+        sync_garmindb.main()
+
+
+def test_direct_sync_rejects_missing_fit_before_import(tmp_path, monkeypatch):
+    import weather_score.garmin as personal_api
+    import weather_score.garmin_activity_import as importer
+
+    monkeypatch.setenv("DB_NAME", "test")
+    monkeypatch.setenv("DB_SHARED_GARMIN", "1")
+    monkeypatch.setattr(sync_garmindb, "_fetch_tss_threshold", lambda: 170)
+    monkeypatch.setattr(sync_garmindb, "_get_postgres_parameters", lambda _: {})
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("activity_grades",)
+    connection.execute.return_value.fetchall.return_value = [
+        ("avg_steps_per_min", "double precision"),
+        ("max_steps_per_min", "double precision"),
+    ]
+    monkeypatch.setattr(sync_garmindb.psycopg, "connect", lambda **_: connection)
+    monkeypatch.setattr(personal_api, "fetch_activities", lambda _, **kwargs: None)
+    imported = MagicMock()
+    monkeypatch.setattr(importer, "import_activity", imported)
+    directory = tmp_path / "HealthData/FitFiles/Activities"
+    directory.mkdir(parents=True)
+    (directory / "activity_1.json").write_text('{"activityId": 1}')
+    (directory / "activity_details_1.json").write_text('{"activityId": 1}')
+    with pytest.raises(SystemExit, match="FIT file is missing"):
+        sync_garmindb._sync_direct(
+            tmp_path / "HealthData/DBs/garmin_activities.db", "test"
+        )
+    imported.assert_not_called()
+
+
 @pytest.fixture(autouse=True)
 def configure_personal_api(monkeypatch):
     monkeypatch.setenv("GARMIN_CONNECT", "test-key")
@@ -108,6 +163,35 @@ def test_api_failure_prevents_import(tmp_path, monkeypatch):
     run.assert_not_called()
 
 
+@pytest.mark.parametrize("full_import", [False, True])
+def test_postgres_import_requests_only_activities(tmp_path, monkeypatch, full_import):
+    monkeypatch.setattr(
+        sync_garmindb,
+        "_get_postgres_parameters",
+        lambda _: {
+            "user": "postgres",
+            "password": "test",
+            "host": "localhost",
+            "port": "5432",
+        },
+    )
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = (1,)
+    monkeypatch.setattr(sync_garmindb.psycopg, "connect", lambda **_: connection)
+    run = MagicMock()
+    monkeypatch.setattr(sync_garmindb, "_run_garmindb", run)
+
+    sync_garmindb._import_postgres({}, tmp_path, "garmin", full_import)
+
+    args = run.call_args.args[1]
+    assert "--activities" in args
+    assert "--import" in args
+    assert "--all" not in args
+    assert "--download" not in args
+    assert ("--latest" in args) is not full_import
+
+
 def test_postgres_reuses_weather_connection_settings(monkeypatch) -> None:
     values = {
         "DB_USER": "weather-user",
@@ -132,7 +216,15 @@ def test_shared_database_sync_never_creates_a_database(monkeypatch):
     monkeypatch.setenv("DB_SHARED_GARMIN", "1")
     connection = MagicMock()
     connection.__enter__.return_value = connection
-    connection.execute.return_value = [("garmin",), ("garmin_activities",), ("garmin_monitoring",)]
+    table = MagicMock()
+    table.fetchone.return_value = ("garmin_activities.activities",)
+    populated = MagicMock()
+    populated.fetchone.return_value = (True,)
+    connection.execute.side_effect = [
+        [("garmin",), ("garmin_activities",)],
+        table,
+        populated,
+    ]
     connect = MagicMock(return_value=connection)
     monkeypatch.setattr(sync_garmindb.psycopg, "connect", connect)
     monkeypatch.setattr(sync_garmindb, "_get_postgres_parameters", lambda _: {})
@@ -143,6 +235,30 @@ def test_shared_database_sync_never_creates_a_database(monkeypatch):
     assert connect.call_count == 1
     assert "CREATE DATABASE" not in connection.execute.call_args.args[0]
     initialize.assert_called_once_with("shared")
+
+
+@pytest.mark.parametrize(
+    "table,has_data", [(None, False), ("garmin_activities.activities", False)]
+)
+def test_empty_activity_database_requires_full_import(monkeypatch, table, has_data):
+    monkeypatch.setenv("DB_NAME", "shared")
+    monkeypatch.setenv("DB_SHARED_GARMIN", "1")
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    table_result = MagicMock()
+    table_result.fetchone.return_value = (table,)
+    data_result = MagicMock()
+    data_result.fetchone.return_value = (has_data,)
+    connection.execute.side_effect = [
+        [("garmin",), ("garmin_activities",)],
+        table_result,
+        data_result,
+    ]
+    monkeypatch.setattr(sync_garmindb.psycopg, "connect", lambda **_: connection)
+    monkeypatch.setattr(sync_garmindb, "_get_postgres_parameters", lambda _: {})
+    monkeypatch.setattr(sync_garmindb, "_initialize_postgres_tables", MagicMock())
+
+    assert sync_garmindb._prepare_postgres_database("shared") is True
 
 
 @pytest.mark.parametrize("activities", ["garmin_activities.activities", None])
@@ -310,7 +426,7 @@ def test_sync_updates_tss_after_activity_names(tmp_path, monkeypatch, startup) -
     updates.import_data.assert_called_once_with({}, tmp_path.parent, "garmin", True)
 
 
-def test_initializes_all_postgres_tables(monkeypatch) -> None:
+def test_initializes_only_activity_postgres_tables(monkeypatch) -> None:
     import garmindb.garmindb as databases
     import garmindb.summarydb as summaries
 
@@ -325,6 +441,7 @@ def test_initializes_all_postgres_tables(monkeypatch) -> None:
         },
     )
     constructors = []
+    unused = []
     for module, name in [
         (databases, "GarminDb"),
         (databases, "ActivitiesDb"),
@@ -334,7 +451,10 @@ def test_initializes_all_postgres_tables(monkeypatch) -> None:
     ]:
         constructor = MagicMock()
         monkeypatch.setattr(module, name, constructor)
-        constructors.append(constructor)
+        if name in {"GarminDb", "ActivitiesDb"}:
+            constructors.append(constructor)
+        else:
+            unused.append(constructor)
     connection = MagicMock()
     monkeypatch.setattr(sync_garmindb.psycopg, "connect", connection)
 
@@ -343,6 +463,8 @@ def test_initializes_all_postgres_tables(monkeypatch) -> None:
     for constructor in constructors:
         assert constructor.call_args.args[0].pg_database == "garmin"
         constructor.return_value.engine.dispose.assert_called_once()
+    for constructor in unused:
+        constructor.assert_not_called()
     assert (
         "ADD COLUMN IF NOT EXISTS tss"
         in (connection.return_value.__enter__.return_value.execute.call_args.args[0])

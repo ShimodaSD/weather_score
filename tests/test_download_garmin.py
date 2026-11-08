@@ -10,8 +10,10 @@ import requests
 
 from weather_score import garmin
 
+VALID_FIT = bytes.fromhex("0c100000010000002e46495400cffb")
 
-def create_archive(filename="record.fit", content=b"\x00" * 8 + b".FIT"):
+
+def create_archive(filename="record.fit", content=VALID_FIT):
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w") as archive:
         archive.writestr(filename, content)
@@ -98,6 +100,51 @@ def test_download_paginates_saves_files_and_reuses_existing_files(
     assert (tmp_path / "1.fit").is_file()
 
 
+def test_refresh_changed_activity_preserves_previous_files(tmp_path, session):
+    old_summary = b'{"activityId": 1, "activityName": "Before"}'
+    old_details = b'{"activityId": 1, "name": "Before"}'
+    (tmp_path / "activity_1.json").write_bytes(old_summary)
+    (tmp_path / "activity_details_1.json").write_bytes(old_details)
+    (tmp_path / "1.fit").write_bytes(VALID_FIT)
+    session.request.side_effect = [
+        create_response(),
+        create_response([{"activityId": 1, "activityName": "After"}]),
+        create_response({"activityId": 1, "name": "After"}),
+        create_response(content=create_archive()),
+    ]
+    garmin.fetch_activities(tmp_path, refresh_changed=True)
+    assert (
+        json.loads((tmp_path / "activity_1.json").read_text())["activityName"]
+        == "After"
+    )
+    assert (
+        json.loads((tmp_path / "activity_details_1.json").read_text())["name"]
+        == "After"
+    )
+    assert {p.read_bytes() for p in (tmp_path / ".versions").glob("*/*")} == {
+        old_summary,
+        old_details,
+        VALID_FIT,
+    }
+
+
+def test_failed_refresh_keeps_summary_and_fit_for_retry(tmp_path, session):
+    old_summary = b'{"activityId": 1, "activityName": "Before"}'
+    (tmp_path / "activity_1.json").write_bytes(old_summary)
+    (tmp_path / "activity_details_1.json").write_text('{"activityId": 1}')
+    (tmp_path / "1.fit").write_bytes(VALID_FIT)
+    session.request.side_effect = [
+        create_response(),
+        create_response([{"activityId": 1, "activityName": "After"}]),
+        create_response({"activityId": 1, "name": "After"}),
+        create_response(status=500),
+    ]
+    with pytest.raises(ValueError, match="HTTP 500"):
+        garmin.fetch_activities(tmp_path, refresh_changed=True)
+    assert (tmp_path / "activity_1.json").read_bytes() == old_summary
+    assert (tmp_path / "1.fit").read_bytes() == VALID_FIT
+
+
 @pytest.mark.parametrize("status", [401, 403, 429, 500])
 def test_http_failures_preserve_files_without_leaking_credentials(
     tmp_path, session, status
@@ -145,6 +192,8 @@ def test_repeated_pages_fail_instead_of_looping(tmp_path, session, monkeypatch):
     [
         b"not a zip",
         create_archive(content=b"invalid"),
+        create_archive(content=bytes.fromhex("0c100000010000002e46495400cffb")[:-1]),
+        create_archive(content=bytes.fromhex("0c100000010000002e46495400cffc")),
         create_archive(filename="record.txt"),
     ],
 )
@@ -159,6 +208,22 @@ def test_invalid_downloads_do_not_leave_a_completed_fit(tmp_path, session, conte
         garmin.fetch_activities(tmp_path)
     assert not (tmp_path / "1.fit").exists()
     assert not list(tmp_path.glob("*.part"))
+
+
+@pytest.mark.parametrize("missing", ["details", "fit"])
+def test_missing_download_stops_without_marking_import_complete(
+    tmp_path, session, capsys, missing
+):
+    responses = [create_response(), create_response([{"activityId": 1}])]
+    if missing == "fit":
+        responses.append(create_response({"activityId": 1}))
+    responses.append(create_response(status=404))
+    session.request.side_effect = responses
+    with pytest.raises(ValueError, match="HTTP 404"):
+        garmin.fetch_activities(tmp_path)
+    assert not (tmp_path / "1.fit").exists()
+    assert not list(tmp_path.glob("*.part"))
+    assert "importing" not in capsys.readouterr().out
 
 
 def test_archive_paths_cannot_escape_directory(tmp_path, session):
@@ -237,12 +302,17 @@ def test_invalid_details_are_not_saved(tmp_path, session, details):
     assert not (tmp_path / "activity_details_1.json").exists()
 
 
-@pytest.mark.parametrize("today,expected", [
-    (date(2026, 11, 2), "2026-08-02"),
-    (date(2024, 5, 31), "2024-02-29"),
-    (date(2025, 1, 31), "2024-10-31"),
-])
-def test_search_uses_three_calendar_months(tmp_path, session, monkeypatch, today, expected):
+@pytest.mark.parametrize(
+    "today,expected",
+    [
+        (date(2026, 11, 2), "2026-08-02"),
+        (date(2024, 5, 31), "2024-02-29"),
+        (date(2025, 1, 31), "2024-10-31"),
+    ],
+)
+def test_search_uses_three_calendar_months(
+    tmp_path, session, monkeypatch, today, expected
+):
     class FixedDateTime(datetime):
         @classmethod
         def now(cls):
@@ -252,6 +322,8 @@ def test_search_uses_three_calendar_months(tmp_path, session, monkeypatch, today
     session.request.side_effect = [create_response(), create_response([])]
     garmin.fetch_activities(tmp_path)
     assert session.request.call_args.kwargs["params"] == {
-        "start": 0, "limit": garmin.PAGE_SIZE,
-        "startDate": expected, "endDate": today.isoformat(),
+        "start": 0,
+        "limit": garmin.PAGE_SIZE,
+        "startDate": expected,
+        "endDate": today.isoformat(),
     }
