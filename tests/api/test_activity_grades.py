@@ -116,6 +116,7 @@ async def test_queue_grade_only_replaces_a_finished_grade(monkeypatch):
     monkeypatch.setattr(activity_grades, "pool", pool)
 
     assert await activity_grades.queue_activity_grade("123") is None
+    assert "pg_advisory_xact_lock" in cursor.execute.await_args_list[0].args[0]
     sql, parameters = cursor.execute.await_args.args
     assert "WHERE activity_grades.status <> 'processing'" in sql
     assert parameters == ("123",)

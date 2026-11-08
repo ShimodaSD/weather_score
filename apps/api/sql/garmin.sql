@@ -648,7 +648,8 @@ CREATE TABLE garmin_activities.activities (
     hrz_3_time time without time zone NOT NULL,
     hrz_4_time time without time zone NOT NULL,
     hrz_5_time time without time zone NOT NULL,
-    tss double precision
+    tss double precision,
+    import_fingerprint text
 );
 EXCEPTION WHEN duplicate_schema OR duplicate_table OR duplicate_object THEN
     NULL;
@@ -884,8 +885,8 @@ CREATE TABLE garmin_activities.steps_activities (
     avg_pace time without time zone NOT NULL,
     avg_moving_pace time without time zone NOT NULL,
     max_pace time without time zone NOT NULL,
-    avg_steps_per_min integer,
-    max_steps_per_min integer,
+    avg_steps_per_min double precision,
+    max_steps_per_min double precision,
     avg_step_length double precision,
     avg_vertical_ratio double precision,
     avg_vertical_oscillation double precision,

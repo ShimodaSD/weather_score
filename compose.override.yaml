@@ -12,6 +12,13 @@ services:
       DB_SHARED_GARMIN: "1"
       PGSSLMODE: verify-full
       PGSSLROOTCERT: /run/supabase-ca.crt
+      GARMIN_CONNECT_FILE: /run/secrets/garmin_connect
     depends_on: !reset {}
     volumes:
       - ./workspace/supabase/ca.crt:/run/supabase-ca.crt:ro
+      - type: bind
+        source: ${GARMIN_CONNECT_SECRET_FILE:-/dev/null}
+        target: /run/secrets/garmin_connect
+        read_only: true
+        bind:
+          create_host_path: false

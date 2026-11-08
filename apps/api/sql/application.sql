@@ -27,6 +27,7 @@ CREATE TABLE public.athlete_profile (
     id smallint DEFAULT 1 NOT NULL,
     name text,
     threshold_heart_rate_bpm smallint DEFAULT 157 NOT NULL,
+    tss_sync_key text,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT athlete_profile_id_check CHECK ((id = 1)),
     CONSTRAINT athlete_profile_name_check CHECK (((name IS NULL) OR ((length(TRIM(BOTH FROM name)) >= 1) AND (length(TRIM(BOTH FROM name)) <= 100)))),

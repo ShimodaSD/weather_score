@@ -14,6 +14,7 @@ CREATE_PROFILE = """
         name text CHECK (name IS NULL OR (length(trim(name)) BETWEEN 1 AND 100)),
         threshold_heart_rate_bpm smallint NOT NULL DEFAULT 157
             CHECK (threshold_heart_rate_bpm BETWEEN 30 AND 250),
+        tss_sync_key text,
         updated_at timestamptz NOT NULL DEFAULT now()
     )
 """

@@ -424,6 +424,28 @@ def test_returns_one_activity(monkeypatch):
     assert response.json()["files"][0]["id"] == "123"
 
 
+@pytest.mark.asyncio
+async def test_activity_detail_does_not_expose_import_fingerprint(monkeypatch):
+    cursor = AsyncMock()
+    cursor.fetchone.side_effect = [
+        ACTIVITY.copy(),
+        {"activity_id": "123", "import_fingerprint": "internal"},
+        None,
+        None,
+        None,
+        None,
+        None,
+    ]
+    cursor.fetchall.return_value = []
+    connection = MagicMock()
+    connection.cursor.return_value.__aenter__ = AsyncMock(return_value=cursor)
+    pool = MagicMock()
+    pool.connection.return_value.__aenter__ = AsyncMock(return_value=connection)
+    monkeypatch.setattr(garmin, "garmin_pool", pool)
+    detail = await garmin.fetch_activity("123")
+    assert detail["activity"] == {"activity_id": "123"}
+
+
 def test_returns_only_activity_summary(monkeypatch):
     monkeypatch.setattr(auth, "ACCESS_TOKEN", "token")
     fetch_summary = AsyncMock(return_value=ACTIVITY)

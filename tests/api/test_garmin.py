@@ -73,9 +73,51 @@ async def test_runs_repository_garmin_sync_command(monkeypatch):
 
     assert create.await_args.args == ("make", "garmin-sync")
     assert create.await_args.kwargs["cwd"] == Path(__file__).parents[2]
+    assert create.await_args.kwargs["start_new_session"] is True
     assert get_sync_progress().model_dump() == {
         "phase": "complete", "downloaded_files": 3, "total_files": 3,
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("configured_key", "expected"), [("", "test-key"), ("  ", "test-key"), ("configured-key", "configured-key")])
+async def test_sync_reads_garmin_key_from_secret_file(monkeypatch, tmp_path, configured_key, expected):
+    secret = tmp_path / "garmin-key"
+    secret.write_text("test-key\n")
+    monkeypatch.setenv("GARMIN_CONNECT", configured_key)
+    monkeypatch.setenv("GARMIN_CONNECT_FILE", str(secret))
+    stdout = asyncio.StreamReader()
+    stdout.feed_eof()
+    process = type("Process", (), {"returncode": 0, "stdout": stdout, "wait": AsyncMock()})()
+    create = AsyncMock(return_value=process)
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create)
+
+    await run_garmindb_sync()
+
+    assert create.await_args.kwargs["env"]["GARMIN_CONNECT"] == expected
+
+
+@pytest.mark.asyncio
+async def test_sync_timeout_stops_the_process_group(monkeypatch):
+    import signal
+
+    from fastapi import HTTPException
+
+    process = type("Process", (), {"pid": 12345, "communicate": AsyncMock()})()
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", AsyncMock(return_value=process))
+    calls = []
+    monkeypatch.setattr("apps.api.services.garmin.os.killpg", lambda *args: calls.append(args))
+
+    async def timed_out(coro, timeout):
+        coro.close()
+        raise TimeoutError
+
+    monkeypatch.setattr(asyncio, "wait_for", timed_out)
+    with pytest.raises(HTTPException) as error:
+        await run_garmindb_sync()
+    assert error.value.status_code == 504
+    assert calls == [(12345, signal.SIGKILL)]
+    process.communicate.assert_awaited_once()
 
 
 @pytest.mark.asyncio

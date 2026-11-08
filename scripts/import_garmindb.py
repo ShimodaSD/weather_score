@@ -1,5 +1,6 @@
 """Run GarminDB's PostgreSQL import with text activity identifiers."""
 
+import os
 import runpy
 import shutil
 from typing import Any
@@ -26,6 +27,13 @@ def get_measurement_system(
 
 def main() -> None:
     """Apply the GarminDB 3.9 JSON compatibility fix in this subprocess only."""
+    if os.environ.get("DB_SHARED_GARMIN") == "1":
+        try:
+            from .garmindb_postgres import configure_schema_connections
+        except ImportError:
+            from garmindb_postgres import configure_schema_connections
+        configure_schema_connections()
+
     from garmindb.garmin_json_data import GarminJsonActivityData
     from garmindb.garmindb import Attributes
 

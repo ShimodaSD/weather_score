@@ -57,7 +57,7 @@ stored measurement-system attributes in existing databases are respected.
 GET requests use `Authorization: Bearer ...`. Token exchange is performed once
 per sync; HTTP failures, including expiry, throttling and upstream errors, fail
 the sync rather than silently skipping activities. Each request has a 30-second
-timeout, redirects are rejected, and the API retains its 10-minute sync timeout.
+timeout, redirects are rejected, and the API has a 30-minute sync timeout.
 An expired or revoked Personal API key must be replaced in `.env`.
 
 Each sync requests activities from the past three calendar months through today,
@@ -82,12 +82,85 @@ window; existing files are excluded. Each successfully saved file advances the
 counter. A ZIP's FIT payload counts as one file. Summary JSON comes from the
 list response, so this is a saved-file count, not an HTTP-request or byte count.
 
-After downloads finish, progress changes to importing. The existing GarminDB
-parser imports SQLite and PostgreSQL, then copies names and recalculates TSS.
-It does not make provider requests. The first PostgreSQL import processes all
+After downloads finish, progress changes to importing. GarminDB selects the
+activity category for SQLite and PostgreSQL, then the app copies names and
+recalculates TSS. GarminDB may also read local settings or profile files; it does
+not download data or import sleep, monitoring, weight, resting heart rate, or
+HRV. Existing non-activity data is not deleted or refreshed. Activity
+summaries, detail JSON, and FIT files are retained for the current dashboard,
+activity details, route grading, and local archive. The first PostgreSQL import processes all
 local files; SQLite import scans local files so downloaded activities are not limited by a latest-file count.
 `import_garmindb.py` normalizes JSON identifiers to text for PostgreSQL and uses
 metric units for fresh databases lacking a settings FIT file.
+
+To compare the replacement importer, retain a read-only GarminDB SQLite
+database with its matching FIT/JSON inputs and SHA-256 hashes. A local
+comparison copy is not an off-site backup. Compare decoded records with:
+
+```sh
+uv run python scripts/compare_fit_reference.py \
+  /path/to/reference/garmin_activities.db \
+  /path/to/reference/activities
+```
+
+The comparison covers record fields and selected lap fields. Missing files,
+multisport files, row counts and field mismatches are reported separately. A zero
+result does not establish parity for activity summaries, lap heart-rate zones,
+devices, or grades. The reference also contains the original `garmin.db` for
+future device comparisons.
+
+The importer calculates stop times from API start and duration, prefers API
+averages for temperature and running metrics, and preserves the latest device
+metadata timestamp. GarminDB references can differ when they contain a stop
+time equal to the start, use FIT averages or a different length scale, retain
+older device timestamps, or use an alternate filename for identical FIT data.
+TSS values are estimates, not a comparison with Garmin's own TSS values.
+
+The independent importer in `weather_score.garmin_activity_import` is an
+isolated prototype. It inserts one FIT
+activity and matching API summary and detail into the existing tables inside a
+transaction. Existing rows are updated without replacing stored values with
+missing fields. It rejects sport changes and files with fewer records or laps
+than already stored; no old child rows are deleted. When route records change,
+an existing grade is marked failed and the user can request a fresh grade. A
+route update is rejected while grading is in progress or when grade storage is
+unavailable. The importer and the grade service must use the same PostgreSQL
+database for this safeguard; separate local databases are not supported for
+route updates. Multisport files are split into
+numbered session activities. The Garmin FIT SDK handles files the existing
+decoder cannot parse; inconsistent timing or lap counts stop the import. Session
+boundaries tolerate one second for FIT timestamp rounding.
+The importer rejects overlapping sessions beyond that tolerance, unassigned
+records, inconsistent laps, and all climbing files containing splits until
+those splits can be imported without loss.
+The optional PostgreSQL test `test_official_multisport_examples_import_identically`
+uses Garmin's [summary-first and summary-last examples](https://forums.garmin.com/developer/fit-sdk/b/news-announcements/posts/important-fit-activity-file-message-change)
+from `FIT_MULTISPORT_EXAMPLES`, named `99999991.fit` and `99999992.fit`.
+The sync command can select the direct importer with `GARMIN_IMPORTER=direct`;
+the default remains `garmindb`. It reads the saved profile threshold, requires
+the app and Garmin tables in the same database, and checks that both cadence
+columns are `double precision` before downloading. The schema snapshot creates
+new tables with that precision but does not migrate existing tables.
+`scripts/migrate_cadence_precision.sql` is a separately executed transaction:
+it stops if the four views have unexpected metadata or dependencies and waits
+at most five seconds for the table lock. It was tested against a local copy;
+the live migration and cutover must be approved separately. The direct sync
+refreshes changed summaries and their details and FIT files; previous versions
+are retained by content hash in `Activities/.versions`. Changes to details or a
+FIT file that do not change the API summary are not detected. Direct imports
+commit each activity separately; a later failure leaves earlier imports
+committed.
+
+Direct sync uses SHA-256 fingerprints of each summary, details file, FIT file,
+and importer format version to skip unchanged imports. The fingerprint is saved
+in the same database transaction as the activity, so a failed import is retried.
+`scripts/migrate_import_versions.sql` adds the tracking columns to existing
+databases; schema snapshots alone do not migrate them. Existing activities have
+no recorded fingerprint and are imported once after migration. Changing the
+saved heart-rate threshold triggers a TSS backfill; otherwise unchanged syncs
+skip that history-wide recalculation. Update the importer and TSS version tags
+when changing their mapping or calculation rules. Running the GarminDB import
+clears these markers so the next direct sync cannot trust stale versions.
 
 Progress and the sync lock remain in the single API process. Both dashboard
 pages poll on entry, every 30 seconds while idle and every two seconds during a
@@ -95,6 +168,12 @@ sync. Failed downloads stop before import; completed files remain available for
 retry. Import failures can leave SQLite or an earlier importer transaction
 updated, as before; retrying reuses local files and idempotent imports. The TSS
 backfill has its own transaction.
+
+New FIT downloads are checked for a complete header, declared size, and file
+CRC before saving. The replacement importer also checks local FIT files before
+using them. A failed check stops the import and leaves existing database data
+untouched; it does not automatically delete or replace an existing file. See the
+[Garmin FIT protocol](https://developer.garmin.com/fit/protocol/).
 
 Tests: `tests/test_download_garmin.py`, `tests/test_sync_garmindb.py`,
 `tests/test_import_garmindb.py`, and `tests/api/test_garmin.py`. Unit tests never
