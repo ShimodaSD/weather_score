@@ -238,6 +238,8 @@ async def fetch_activity(activity_id: str) -> dict[str, object] | None:
                 (activity_id,),
             )
             activity[field] = await cursor.fetchone()
+            if field == "activity" and activity[field] is not None:
+                activity[field].pop("import_fingerprint", None)
 
         for field, table, order_by in (
             ("laps", "activity_laps", "lap"),

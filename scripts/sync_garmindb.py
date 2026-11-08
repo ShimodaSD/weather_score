@@ -1,5 +1,6 @@
 """Download Garmin Personal API activities and import the existing databases."""
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -15,6 +16,9 @@ import psycopg
 from psycopg import sql
 
 from weather_score.application.training_stress import calculate_activity_tss
+
+DIRECT_IMPORT_VERSION = 1
+TSS_SYNC_VERSION = 1
 
 
 def _fail_sync(message: str) -> Never:
@@ -253,6 +257,30 @@ def _import_postgres(
     database_name: str,
     full_import: bool,
 ) -> None:
+    try:
+        with psycopg.connect(**_get_postgres_parameters(database_name)) as connection:
+            version_columns = connection.execute(
+                "SELECT table_schema, table_name, column_name FROM information_schema.columns "
+                "WHERE (table_schema, table_name, column_name) IN "
+                "(('garmin_activities', 'activities', 'import_fingerprint'), "
+                "('public', 'athlete_profile', 'tss_sync_key'))"
+            ).fetchall()
+            if (
+                "garmin_activities",
+                "activities",
+                "import_fingerprint",
+            ) in version_columns:
+                connection.execute(
+                    "UPDATE garmin_activities.activities SET import_fingerprint = NULL "
+                    "WHERE import_fingerprint IS NOT NULL"
+                )
+            if ("public", "athlete_profile", "tss_sync_key") in version_columns:
+                connection.execute(
+                    "UPDATE public.athlete_profile SET tss_sync_key = NULL "
+                    "WHERE tss_sync_key IS NOT NULL"
+                )
+    except psycopg.Error:
+        _fail_sync("cannot invalidate direct-import versions before GarminDB import")
     postgres_config = deepcopy(config)
     parameters = _get_postgres_parameters(database_name)
     postgres_config["db"] = {
@@ -324,10 +352,13 @@ def _fetch_tss_threshold() -> int:
     return 157
 
 
-def _sync_postgres_activity_tss(database_name: str) -> tuple[int, int]:
+def _sync_postgres_activity_tss(
+    database_name: str, *, threshold: int | None = None
+) -> tuple[int, int]:
     """Backfill all recorded activities with the current profile's HR estimate."""
     try:
-        threshold = _fetch_tss_threshold()
+        if threshold is None:
+            threshold = _fetch_tss_threshold()
         if not 30 <= threshold <= 250:
             _fail_sync("profile threshold must be between 30 and 250 bpm")
         with (
@@ -389,6 +420,21 @@ def _sync_sqlite(working_directory: Path) -> None:
     )
 
 
+def _import_fingerprint(summary: Path, details: Path, fit: Path) -> str:
+    """Hash the complete inputs and importer version without decoding FIT files."""
+    if fit.stat().st_size > 128 * 1024 * 1024:
+        raise ValueError("FIT file exceeds 128 MiB")
+    digest = hashlib.sha256(
+        f"weather-score-direct-import-v{DIRECT_IMPORT_VERSION}\0".encode()
+    )
+    for path in (summary, details, fit):
+        digest.update(path.name.encode())
+        digest.update(b"\0")
+        with path.open("rb") as source:
+            digest.update(hashlib.file_digest(source, "sha256").digest())
+    return digest.hexdigest()
+
+
 def _sync_direct(target: Path, database_name: str) -> None:
     """Download and import activities directly into a shared PostgreSQL database."""
     from zipfile import BadZipFile
@@ -405,9 +451,6 @@ def _sync_direct(target: Path, database_name: str) -> None:
             "direct import requires the app and Garmin tables in the same database"
         )
     try:
-        threshold = _fetch_tss_threshold()
-        if not 30 <= threshold <= 250:
-            _fail_sync("profile threshold must be between 30 and 250 bpm")
         with psycopg.connect(**_get_postgres_parameters(database_name)) as connection:
             if not connection.execute(
                 "SELECT to_regclass('public.activity_grades')"
@@ -425,10 +468,42 @@ def _sync_direct(target: Path, database_name: str) -> None:
                 _fail_sync(
                     "direct import requires fractional cadence columns; migrate the schema first"
                 )
+            version_columns = connection.execute(
+                "SELECT table_schema, table_name, column_name, data_type FROM information_schema.columns "
+                "WHERE (table_schema, table_name, column_name) IN "
+                "(('garmin_activities', 'activities', 'import_fingerprint'), "
+                "('public', 'athlete_profile', 'tss_sync_key'))"
+            ).fetchall()
+            if set(version_columns) != {
+                ("garmin_activities", "activities", "import_fingerprint", "text"),
+                ("public", "athlete_profile", "tss_sync_key", "text"),
+            }:
+                _fail_sync("direct import requires the import-version schema migration")
+            profile = connection.execute(
+                "SELECT threshold_heart_rate_bpm, tss_sync_key FROM public.athlete_profile WHERE id = 1"
+            ).fetchone()
+            if profile is None:
+                connection.execute(
+                    "INSERT INTO public.athlete_profile (id) VALUES (1) ON CONFLICT (id) DO NOTHING"
+                )
+                profile = connection.execute(
+                    "SELECT threshold_heart_rate_bpm, tss_sync_key FROM public.athlete_profile WHERE id = 1"
+                ).fetchone()
+            threshold = profile[0]
+            if not 30 <= threshold <= 250:
+                _fail_sync("profile threshold must be between 30 and 250 bpm")
             connection.commit()
             directory = target.parent.parent / "FitFiles" / "Activities"
             fetch_activities(directory, refresh_changed=True)
+            fingerprints = dict(
+                connection.execute(
+                    "SELECT activity_id, import_fingerprint FROM garmin_activities.activities "
+                    "WHERE import_fingerprint IS NOT NULL"
+                ).fetchall()
+            )
+            connection.commit()
             count = 0
+            skipped = 0
             for summary_path in sorted(directory.glob("activity_[0-9]*.json")):
                 summary = json.loads(summary_path.read_text())
                 if not isinstance(summary, dict):
@@ -441,11 +516,7 @@ def _sync_direct(target: Path, database_name: str) -> None:
                     or summary_path.name != f"activity_{activity_id}.json"
                 ):
                     raise ValueError("Invalid activity summary file")
-                details = json.loads(
-                    (directory / f"activity_details_{activity_id}.json").read_text()
-                )
-                if not isinstance(details, dict):
-                    raise TypeError("Invalid activity details file")
+                details_path = directory / f"activity_details_{activity_id}.json"
                 fit = next(
                     (
                         path
@@ -459,15 +530,46 @@ def _sync_direct(target: Path, database_name: str) -> None:
                 )
                 if fit is None:
                     raise ValueError("Activity FIT file is missing")
-                import_activity(
-                    connection,
-                    summary,
-                    details,
-                    fit,
-                    threshold_heart_rate_bpm=threshold,
-                )
-                connection.commit()
+                fingerprint = _import_fingerprint(summary_path, details_path, fit)
+                if fingerprints.get(str(activity_id)) == fingerprint:
+                    skipped += 1
+                    continue
+                summary = json.loads(summary_path.read_text())
+                if (
+                    not isinstance(summary, dict)
+                    or summary.get("activityId") != activity_id
+                ):
+                    raise ValueError("Activity summary changed during import")
+                details = json.loads(details_path.read_text())
+                if not isinstance(details, dict):
+                    raise TypeError("Invalid activity details file")
+                with connection.transaction():
+                    import_activity(
+                        connection,
+                        summary,
+                        details,
+                        fit,
+                        threshold_heart_rate_bpm=threshold,
+                    )
+                    if (
+                        _import_fingerprint(summary_path, details_path, fit)
+                        != fingerprint
+                    ):
+                        raise ValueError("Activity input changed during import")
+                    connection.execute(
+                        "UPDATE garmin_activities.activities SET import_fingerprint = %s WHERE activity_id = %s",
+                        (fingerprint, str(activity_id)),
+                    )
                 count += 1
+            profile = connection.execute(
+                "SELECT threshold_heart_rate_bpm, tss_sync_key FROM public.athlete_profile WHERE id = 1"
+            ).fetchone()
+            if profile is None:
+                raise ValueError("Athlete profile disappeared during sync")
+            threshold, synced_tss_key = profile
+            if not 30 <= threshold <= 250:
+                _fail_sync("profile threshold must be between 30 and 250 bpm")
+            tss_key = f"heart-rate-tss-v{TSS_SYNC_VERSION}:{threshold}"
     except (
         psycopg.Error,
         requests.RequestException,
@@ -477,10 +579,33 @@ def _sync_direct(target: Path, database_name: str) -> None:
         BadZipFile,
     ) as error:
         _fail_sync(f"direct activity import failed: {error}")
-    scored, excluded = _sync_postgres_activity_tss(database_name)
-    print(
-        f"garmin-sync: imported {count} activities; TSS calculated for {scored}, {excluded} unavailable"
-    )
+    if synced_tss_key != tss_key:
+        with psycopg.connect(**_get_postgres_parameters(database_name)) as connection:
+            marked = connection.execute(
+                "UPDATE public.athlete_profile SET tss_sync_key = NULL "
+                "WHERE id = 1 AND threshold_heart_rate_bpm = %s RETURNING id",
+                (threshold,),
+            ).fetchone()
+        if marked is None:
+            _fail_sync("profile changed during sync; retry to update TSS")
+        with psycopg.connect(**_get_postgres_parameters(database_name)) as connection:
+            profile = connection.execute(
+                "SELECT threshold_heart_rate_bpm, tss_sync_key FROM public.athlete_profile WHERE id = 1 FOR UPDATE"
+            ).fetchone()
+            if profile is None or profile[0] != threshold:
+                _fail_sync("profile changed during sync; retry to update TSS")
+            if profile[1] != tss_key:
+                scored, excluded = _sync_postgres_activity_tss(
+                    database_name, threshold=threshold
+                )
+                connection.execute(
+                    "UPDATE public.athlete_profile SET tss_sync_key = %s WHERE id = 1",
+                    (tss_key,),
+                )
+                print(
+                    f"garmin-sync: TSS calculated for {scored} activities; {excluded} unavailable"
+                )
+    print(f"garmin-sync: imported {count} activities; skipped {skipped} unchanged")
 
 
 def main() -> None:

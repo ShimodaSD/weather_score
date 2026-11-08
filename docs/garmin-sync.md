@@ -151,6 +151,17 @@ FIT file that do not change the API summary are not detected. Direct imports
 commit each activity separately; a later failure leaves earlier imports
 committed.
 
+Direct sync uses SHA-256 fingerprints of each summary, details file, FIT file,
+and importer format version to skip unchanged imports. The fingerprint is saved
+in the same database transaction as the activity, so a failed import is retried.
+`scripts/migrate_import_versions.sql` adds the tracking columns to existing
+databases; schema snapshots alone do not migrate them. Existing activities have
+no recorded fingerprint and are imported once after migration. Changing the
+saved heart-rate threshold triggers a TSS backfill; otherwise unchanged syncs
+skip that history-wide recalculation. Update the importer and TSS version tags
+when changing their mapping or calculation rules. Running the GarminDB import
+clears these markers so the next direct sync cannot trust stale versions.
+
 Progress and the sync lock remain in the single API process. Both dashboard
 pages poll on entry, every 30 seconds while idle and every two seconds during a
 sync. Failed downloads stop before import; completed files remain available for

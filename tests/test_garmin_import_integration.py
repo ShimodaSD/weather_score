@@ -83,11 +83,68 @@ def test_direct_sync_uses_saved_profile_and_is_repeatable(tmp_path, monkeypatch)
         **sync_garmindb._get_postgres_parameters(database)
     ) as connection:
         connection.execute(
-            "INSERT INTO public.athlete_profile (id, threshold_heart_rate_bpm) VALUES (1, 170) ON CONFLICT (id) DO UPDATE SET threshold_heart_rate_bpm = 170"
+            "INSERT INTO public.athlete_profile (id, threshold_heart_rate_bpm) VALUES (1, 170) ON CONFLICT (id) DO UPDATE SET threshold_heart_rate_bpm = 170, tss_sync_key = NULL"
+        )
+        connection.execute(
+            "UPDATE garmin_activities.activities SET import_fingerprint = NULL WHERE activity_id = %s",
+            (activity_id,),
         )
     target = tmp_path / "HealthData/DBs/garmin_activities.db"
+    original_import = importer.import_activity
+    original_backfill = sync_garmindb._sync_postgres_activity_tss
+    imports, backfills = [], []
+
+    def observed_import(*args, **kwargs):
+        imports.append(True)
+        return original_import(*args, **kwargs)
+
+    def observed_backfill(*args, **kwargs):
+        backfills.append(kwargs["threshold"])
+        with psycopg.connect(
+            **sync_garmindb._get_postgres_parameters(database)
+        ) as other:
+            other.execute("SET LOCAL lock_timeout = '100ms'")
+            with pytest.raises(psycopg.errors.LockNotAvailable):
+                other.execute(
+                    "UPDATE public.athlete_profile SET threshold_heart_rate_bpm = 180 WHERE id = 1"
+                )
+        return original_backfill(*args, **kwargs)
+
+    monkeypatch.setattr(importer, "import_activity", observed_import)
+    monkeypatch.setattr(sync_garmindb, "_sync_postgres_activity_tss", observed_backfill)
     sync_garmindb._sync_direct(target, database)
-    sync_garmindb._sync_direct(target, database)
+    with psycopg.connect(
+        **sync_garmindb._get_postgres_parameters(database)
+    ) as connection:
+        connection.execute(
+            "CREATE OR REPLACE FUNCTION public.test_reject_sync_writes() RETURNS trigger "
+            "LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'unexpected sync write'; END $$"
+        )
+        for table in (
+            "garmin_activities.activities",
+            "garmin_activities.activity_records",
+            "garmin_activities.activity_laps",
+            "public.athlete_profile",
+        ):
+            connection.execute(
+                f"CREATE TRIGGER test_no_sync_writes BEFORE INSERT OR UPDATE OR DELETE ON {table} FOR EACH STATEMENT EXECUTE FUNCTION public.test_reject_sync_writes()"
+            )
+    try:
+        sync_garmindb._sync_direct(target, database)
+    finally:
+        with psycopg.connect(
+            **sync_garmindb._get_postgres_parameters(database)
+        ) as connection:
+            for table in (
+                "garmin_activities.activities",
+                "garmin_activities.activity_records",
+                "garmin_activities.activity_laps",
+                "public.athlete_profile",
+            ):
+                connection.execute(f"DROP TRIGGER test_no_sync_writes ON {table}")
+            connection.execute("DROP FUNCTION public.test_reject_sync_writes()")
+    assert len(imports) == 1
+    assert backfills == [170]
     with psycopg.connect(
         **sync_garmindb._get_postgres_parameters(database)
     ) as connection:
@@ -116,6 +173,116 @@ def test_direct_sync_uses_saved_profile_and_is_repeatable(tmp_path, monkeypatch)
                 "SELECT count(*) FROM garmin_activities.activities"
             ).fetchone()[0]
             == 1
+        )
+        old_name, old_fingerprint = connection.execute(
+            "SELECT name, import_fingerprint FROM garmin_activities.activities WHERE activity_id = %s",
+            (activity_id,),
+        ).fetchone()
+        assert old_fingerprint
+        connection.execute(
+            "UPDATE public.athlete_profile SET threshold_heart_rate_bpm = 160 WHERE id = 1"
+        )
+
+    def fail_backfill(*args, **kwargs):
+        raise RuntimeError("simulated backfill failure")
+
+    monkeypatch.setattr(sync_garmindb, "_sync_postgres_activity_tss", fail_backfill)
+    with pytest.raises(RuntimeError, match="simulated backfill failure"):
+        sync_garmindb._sync_direct(target, database)
+    with psycopg.connect(
+        **sync_garmindb._get_postgres_parameters(database)
+    ) as connection:
+        assert (
+            connection.execute(
+                "SELECT tss_sync_key FROM public.athlete_profile WHERE id = 1"
+            ).fetchone()[0]
+            is None
+        )
+    monkeypatch.setattr(sync_garmindb, "_sync_postgres_activity_tss", observed_backfill)
+    sync_garmindb._sync_direct(target, database)
+    assert len(imports) == 1
+    assert backfills == [170, 160]
+
+    def change_profile_during_download(path, **kwargs):
+        with psycopg.connect(
+            **sync_garmindb._get_postgres_parameters(database)
+        ) as connection:
+            connection.execute(
+                "UPDATE public.athlete_profile SET threshold_heart_rate_bpm = 155 WHERE id = 1"
+            )
+
+    monkeypatch.setattr(
+        personal_api, "fetch_activities", change_profile_during_download
+    )
+    sync_garmindb._sync_direct(target, database)
+    assert len(imports) == 1
+    assert backfills == [170, 160, 155]
+    monkeypatch.setattr(personal_api, "fetch_activities", lambda path, **kwargs: None)
+
+    updated_summary = summary | {"activityName": "Updated by version test"}
+    (directory / source.name).write_text(json.dumps(updated_summary))
+
+    def fail_after_import(*args, **kwargs):
+        original_import(*args, **kwargs)
+        raise ValueError("simulated import failure")
+
+    monkeypatch.setattr(importer, "import_activity", fail_after_import)
+    with pytest.raises(SystemExit, match="simulated import failure"):
+        sync_garmindb._sync_direct(target, database)
+    with psycopg.connect(
+        **sync_garmindb._get_postgres_parameters(database)
+    ) as connection:
+        assert connection.execute(
+            "SELECT name, import_fingerprint FROM garmin_activities.activities WHERE activity_id = %s",
+            (activity_id,),
+        ).fetchone() == (old_name, old_fingerprint)
+
+    def change_input_during_import(*args, **kwargs):
+        original_import(*args, **kwargs)
+        details_path = directory / f"activity_details_{activity_id}.json"
+        details = json.loads(details_path.read_text())
+        details["testMarker"] = True
+        details_path.write_text(json.dumps(details))
+
+    monkeypatch.setattr(importer, "import_activity", change_input_during_import)
+    with pytest.raises(SystemExit, match="input changed during import"):
+        sync_garmindb._sync_direct(target, database)
+    with psycopg.connect(
+        **sync_garmindb._get_postgres_parameters(database)
+    ) as connection:
+        assert connection.execute(
+            "SELECT name, import_fingerprint FROM garmin_activities.activities WHERE activity_id = %s",
+            (activity_id,),
+        ).fetchone() == (old_name, old_fingerprint)
+    monkeypatch.setattr(importer, "import_activity", observed_import)
+    sync_garmindb._sync_direct(target, database)
+    assert len(imports) == 2
+    with psycopg.connect(
+        **sync_garmindb._get_postgres_parameters(database)
+    ) as connection:
+        name, fingerprint = connection.execute(
+            "SELECT name, import_fingerprint FROM garmin_activities.activities WHERE activity_id = %s",
+            (activity_id,),
+        ).fetchone()
+        assert name == "Updated by version test"
+        assert fingerprint != old_fingerprint
+    monkeypatch.setattr(sync_garmindb, "_run_garmindb", lambda *args: None)
+    sync_garmindb._import_postgres({}, tmp_path, database, True)
+    with psycopg.connect(
+        **sync_garmindb._get_postgres_parameters(database)
+    ) as connection:
+        assert (
+            connection.execute(
+                "SELECT import_fingerprint FROM garmin_activities.activities WHERE activity_id = %s",
+                (activity_id,),
+            ).fetchone()[0]
+            is None
+        )
+        assert (
+            connection.execute(
+                "SELECT tss_sync_key FROM public.athlete_profile WHERE id = 1"
+            ).fetchone()[0]
+            is None
         )
 
 

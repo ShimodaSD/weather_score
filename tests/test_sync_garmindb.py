@@ -12,6 +12,35 @@ from scripts import sync_garmindb
 SCRIPT = Path(__file__).parents[1] / "scripts" / "sync_garmindb.py"
 
 
+def test_import_fingerprint_changes_for_each_input(tmp_path, monkeypatch):
+    paths = [
+        tmp_path / name
+        for name in ("activity_1.json", "activity_details_1.json", "1.fit")
+    ]
+    for path in paths:
+        path.write_bytes(b"original")
+    original = sync_garmindb._import_fingerprint(*paths)
+    for path in paths:
+        path.write_bytes(b"changed")
+        assert sync_garmindb._import_fingerprint(*paths) != original
+        path.write_bytes(b"original")
+    alternate = tmp_path / "1_ACTIVITY.fit"
+    alternate.write_bytes(b"original")
+    assert sync_garmindb._import_fingerprint(paths[0], paths[1], alternate) != original
+    monkeypatch.setattr(sync_garmindb, "DIRECT_IMPORT_VERSION", 2)
+    assert sync_garmindb._import_fingerprint(*paths) != original
+
+
+def test_import_fingerprint_rejects_oversized_fit_before_hashing(tmp_path):
+    fit = tmp_path / "1.fit"
+    with fit.open("wb") as output:
+        output.truncate(128 * 1024 * 1024 + 1)
+    with pytest.raises(ValueError, match="128 MiB"):
+        sync_garmindb._import_fingerprint(
+            tmp_path / "missing-summary", tmp_path / "missing-details", fit
+        )
+
+
 def test_direct_mode_dispatches_without_enabling_it_by_default(tmp_path, monkeypatch):
     target = tmp_path / "garmin_activities.db"
     monkeypatch.setenv("GARMIN_IMPORTER", "direct")
@@ -43,15 +72,31 @@ def test_direct_sync_rejects_missing_fit_before_import(tmp_path, monkeypatch):
 
     monkeypatch.setenv("DB_NAME", "test")
     monkeypatch.setenv("DB_SHARED_GARMIN", "1")
-    monkeypatch.setattr(sync_garmindb, "_fetch_tss_threshold", lambda: 170)
     monkeypatch.setattr(sync_garmindb, "_get_postgres_parameters", lambda _: {})
     connection = MagicMock()
     connection.__enter__.return_value = connection
-    connection.execute.return_value.fetchone.return_value = ("activity_grades",)
-    connection.execute.return_value.fetchall.return_value = [
-        ("avg_steps_per_min", "double precision"),
-        ("max_steps_per_min", "double precision"),
-    ]
+
+    def execute(query, *args):
+        result = MagicMock()
+        if "to_regclass" in query:
+            result.fetchone.return_value = ("activity_grades",)
+        elif "steps_activities" in query:
+            result.fetchall.return_value = [
+                ("avg_steps_per_min", "double precision"),
+                ("max_steps_per_min", "double precision"),
+            ]
+        elif "information_schema.columns" in query:
+            result.fetchall.return_value = [
+                ("garmin_activities", "activities", "import_fingerprint", "text"),
+                ("public", "athlete_profile", "tss_sync_key", "text"),
+            ]
+        elif "threshold_heart_rate_bpm, tss_sync_key" in query:
+            result.fetchone.return_value = (170, None)
+        else:
+            result.fetchall.return_value = []
+        return result
+
+    connection.execute.side_effect = execute
     monkeypatch.setattr(sync_garmindb.psycopg, "connect", lambda **_: connection)
     monkeypatch.setattr(personal_api, "fetch_activities", lambda _, **kwargs: None)
     imported = MagicMock()

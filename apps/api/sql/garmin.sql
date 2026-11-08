@@ -648,7 +648,8 @@ CREATE TABLE garmin_activities.activities (
     hrz_3_time time without time zone NOT NULL,
     hrz_4_time time without time zone NOT NULL,
     hrz_5_time time without time zone NOT NULL,
-    tss double precision
+    tss double precision,
+    import_fingerprint text
 );
 EXCEPTION WHEN duplicate_schema OR duplicate_table OR duplicate_object THEN
     NULL;
